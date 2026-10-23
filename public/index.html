@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Assistant</title>
+  <link rel="icon" href="/static/logo-placeholder.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/vendor/marked.min.js" defer></script>
+  <script src="/static/vendor/purify.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/static/logo-placeholder.svg" alt="" class="brand-mark">
+      <span class="brand-name" data-brand>Sun Life</span>
+    </div>
+    <div class="topbar-right" id="userbar" hidden>
+      <span class="greeting" id="greeting"></span>
+      <button class="link-btn" id="signout">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Sign-in (demo) -->
+    <section class="signin" id="signin">
+      <div class="hero">
+        <h1>Hi, how can we help today?</h1>
+        <p>Ask our virtual assistant about your policies, coverage, premiums and claims, any time.</p>
+      </div>
+      <form class="card signin-card" id="signin-form">
+        <h2>Sign in</h2>
+        <p class="muted">Demo sign-in. In production this is replaced by your secure customer login.</p>
+        <label for="customer-id">Customer ID</label>
+        <input id="customer-id" name="customer_id" autocomplete="off" placeholder="e.g. C1001" required>
+        <div class="demo-list" id="demo-list"></div>
+        <button class="btn-primary" type="submit">Start chat</button>
+      </form>
+    </section>
+
+    <!-- Chat -->
+    <section class="chat" id="chat" hidden>
+      <div class="messages" id="messages" aria-live="polite">
+        <div class="msg bot welcome">
+          <div class="avatar" aria-hidden="true"><img src="/static/logo-placeholder.svg" alt=""></div>
+          <div class="bubble">
+            <p><strong>Welcome!</strong> I can look up your policies and claims and explain them in plain language. What would you like to know?</p>
+            <div class="suggestions" id="suggestions">
+              <button>What policies do I have?</button>
+              <button>What's the status of my latest claim?</button>
+              <button>How much dental coverage do I have left this year?</button>
+              <button>When is my next premium payment?</button>
+              <button>Do any of my claims need something from me?</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Ask about your policies or claims…" aria-label="Message" maxlength="4000"></textarea>
+        <button class="btn-send" id="send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 20.5 21 12 3 3.5l2.4 7L15 12l-9.6 1.5z" fill="currentColor"/></svg>
+        </button>
+      </form>
+      <p class="disclaimer">The assistant can make mistakes. For decisions about your coverage, please confirm with your advisor.</p>
+    </section>
+  </main>
+</body>
+</html>

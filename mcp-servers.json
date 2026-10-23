@@ -1,0 +1,7 @@
+{
+  "customerIdArgument": "customer_id",
+  "servers": {
+    "policies": { "transport": "stdio", "command": "node", "args": ["mock-mcp-servers/policy-server.js"] },
+    "claims": { "transport": "stdio", "command": "node", "args": ["mock-mcp-servers/claims-server.js"] }
+  }
+}
