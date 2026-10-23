@@ -1,10 +1,22 @@
 // The customer chat agent: Claude plus the tools from the connected MCP servers.
 import Anthropic from "@anthropic-ai/sdk";
+import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 
-export const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
+// "anthropic" calls the Claude API directly; "bedrock" calls Claude on Amazon Bedrock
+// using the standard AWS credential chain (env vars, ~/.aws profile, or an IAM role).
+export const PROVIDER = (process.env.LLM_PROVIDER ?? "anthropic").toLowerCase();
+const ON_BEDROCK = PROVIDER === "bedrock";
+// Bedrock model IDs carry an "anthropic." prefix.
+export const MODEL = process.env.CLAUDE_MODEL ?? (ON_BEDROCK ? "anthropic.claude-opus-5-5" : "claude-opus-5-5");
 const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
-// Server-side refusal fallback (Claude API only; set to "false" on Bedrock/Vertex/Foundry).
-const USE_FALLBACKS = (process.env.CLAUDE_FALLBACKS ?? "true").toLowerCase() === "true";
+// Server-side refusal fallback is a Claude API feature; it is not available on Bedrock.
+const USE_FALLBACKS = !ON_BEDROCK && (process.env.CLAUDE_FALLBACKS ?? "true").toLowerCase() === "true";
+
+export function createClaudeClient() {
+  if (ON_BEDROCK) return new AnthropicBedrockMantle({ awsRegion: process.env.AWS_REGION });
+  if (PROVIDER !== "anthropic") throw new Error(`Unknown LLM_PROVIDER ${JSON.stringify(PROVIDER)}`);
+  return new Anthropic();
+}
 export const BRAND_NAME = process.env.BRAND_NAME ?? "Sun Life";
 const MAX_TOOL_ROUNDS = 8;
 
@@ -33,7 +45,7 @@ export class Conversation {
 }
 
 export class InsuranceAgent {
-  constructor(hub, client = new Anthropic()) {
+  constructor(hub, client = createClaudeClient()) {
     this.hub = hub;
     this.client = client;
   }

@@ -63,3 +63,31 @@ test("real SDK sends the expected request", async () => {
   assert.equal(captured.headers.get("anthropic-beta"), "server-side-fallback-2026-07-01");
   assert.ok(captured.body.tools.every((t) => !("customer_id" in t.input_schema.properties)));
 });
+
+test("Bedrock provider sends the expected request", async () => {
+  const { AnthropicBedrockMantle } = await import("@anthropic-ai/bedrock-sdk");
+  let captured;
+  const client = new AnthropicBedrockMantle({
+    awsRegion: "us-east-1",
+    apiKey: "test",
+    maxRetries: 0,
+    fetch: async (url, init) => {
+      captured = { url: String(url), body: JSON.parse(init.body) };
+      return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "stop" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+  // Load a fresh copy of the agent module with the Bedrock settings.
+  process.env.LLM_PROVIDER = "bedrock";
+  const { InsuranceAgent: BedrockAgent, Conversation: BedrockConversation, MODEL } = await import(`../src/agent.js?bedrock`);
+  delete process.env.LLM_PROVIDER;
+  assert.equal(MODEL, "anthropic.claude-opus-5-5");
+
+  await assert.rejects(run(new BedrockAgent(hub, client), new BedrockConversation("C1001"), "hi"), Anthropic.BadRequestError);
+  assert.match(captured.url, /bedrock-mantle\.us-east-1\.api\.aws/);
+  assert.equal(captured.body.model, "anthropic.claude-opus-5-5");
+  assert.equal(captured.body.fallbacks, undefined);
+  assert.ok(captured.body.tools.every((t) => !("customer_id" in t.input_schema.properties)));
+});

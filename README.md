@@ -9,7 +9,7 @@ Browser (chat UI)  ──SSE──►  Express backend  ──►  Claude (Messa
                                                  └──►  your Claims MCP server
 ```
 
-Built with Node.js 20+, Express, the official [Anthropic SDK](https://www.npmjs.com/package/@anthropic-ai/sdk) and the official [MCP SDK](https://www.npmjs.com/package/@modelcontextprotocol/sdk).
+Built with Node.js 20+, Express, the official [Anthropic SDK](https://www.npmjs.com/package/@anthropic-ai/sdk) (plus its [Bedrock client](https://www.npmjs.com/package/@anthropic-ai/bedrock-sdk) for AWS) and the official [MCP SDK](https://www.npmjs.com/package/@modelcontextprotocol/sdk).
 
 ## Quick start
 
@@ -20,6 +20,19 @@ node --env-file=.env src/server.js
 ```
 
 Open http://localhost:3000, pick a demo customer and start chatting.
+
+### Running on AWS (Amazon Bedrock)
+
+If your company uses AWS rather than a direct Claude API key, run Claude through Amazon Bedrock:
+
+```bash
+LLM_PROVIDER=bedrock AWS_REGION=us-east-1 node src/server.js
+```
+
+- AWS credentials come from the standard AWS chain: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, an `AWS_PROFILE` from `~/.aws`, or the IAM role of the EC2/ECS/Lambda host. No `ANTHROPIC_API_KEY` is needed.
+- In the Bedrock console, make sure model access for Claude Opus 5.5 is enabled in your region. The IAM identity needs permission to invoke it.
+- The model defaults to `anthropic.claude-opus-5-5`; override it with `CLAUDE_MODEL` (for example `anthropic.claude-sonnet-5-5` for lower cost).
+- The server-side refusal fallback is a Claude API feature and is turned off automatically on Bedrock.
 
 Out of the box `mcp-servers.json` points at two small **mock** MCP servers in `mock-mcp-servers/` (sample data in `data/`) so you can try the app before wiring in your real servers.
 
@@ -48,10 +61,12 @@ If a tool has an argument named `customer_id` (configurable via `customerIdArgum
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | | Claude API key |
-| `CLAUDE_MODEL` | `claude-opus-5-5` | Model used for the chat |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API) or `bedrock` (Amazon Bedrock) |
+| `ANTHROPIC_API_KEY` | | Claude API key (not needed on Bedrock) |
+| `AWS_REGION` | | Bedrock region, e.g. `us-east-1` |
+| `CLAUDE_MODEL` | `claude-opus-5-5` (`anthropic.claude-opus-5-5` on Bedrock) | Model used for the chat |
 | `CLAUDE_EFFORT` | `medium` | `low` is faster and cheaper for simple Q&A |
-| `CLAUDE_FALLBACKS` | `true` | Server-side refusal fallback (Claude API only) |
+| `CLAUDE_FALLBACKS` | `true` | Server-side refusal fallback (Claude API only, ignored on Bedrock) |
 | `BRAND_NAME` | `Sun Life` | Name shown in the UI and used by the assistant |
 | `MCP_CONFIG` | `mcp-servers.json` | MCP server config file |
 | `PORT` | `3000` | HTTP port |
