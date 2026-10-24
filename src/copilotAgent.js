@@ -6,7 +6,7 @@
 // call the policy and claims tools, which go through the same MCPHub (and the same
 // customer-id injection) as the Claude agent.
 import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { CopilotClient, ToolSet, defineTool } from "@github/copilot-sdk";
 import { SYSTEM_PROMPT, toolLabel } from "./agent.js";
@@ -42,17 +42,19 @@ export class CopilotAgent {
     this.hub = hub;
     // "empty" mode is the SDK's multi-user server mode: no CLI defaults, no cross-session store.
     // Auth: COPILOT_GITHUB_TOKEN / GH_TOKEN / GITHUB_TOKEN, or the user signed in to Copilot CLI.
-    // Sandbox directory for the runtime's working files and session state, so even a
-    // misconfigured tool filter has nothing of ours to touch.
+    // Sandbox working directory, so even a misconfigured tool filter has nothing of ours to touch.
     const sandbox = mkdtempSync(path.join(tmpdir(), "copilot-agent-"));
+    const token = process.env.COPILOT_GITHUB_TOKEN;
     this.client =
       client ??
       new CopilotClient({
         mode: "empty",
         logLevel: "error",
         workingDirectory: sandbox,
-        baseDirectory: sandbox,
-        ...(process.env.COPILOT_GITHUB_TOKEN ? { gitHubToken: process.env.COPILOT_GITHUB_TOKEN } : {}),
+        // With a token, keep all Copilot state in the sandbox. Without one, use the Copilot CLI's
+        // home (~/.copilot) so the account from `copilot login` is picked up.
+        baseDirectory: token ? sandbox : (process.env.COPILOT_HOME ?? path.join(homedir(), ".copilot")),
+        ...(token ? { gitHubToken: token } : { useLoggedInUser: true }),
       });
     this.started = null;
   }

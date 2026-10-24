@@ -1,15 +1,14 @@
 {
   "name": "insurance-chat-agent",
-  "version": "1.0.0",
+  "version": "0.4.0",
   "description": "Customer chat agent for insurance policies and claims, powered by Claude and MCP servers",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@anthropic-ai/bedrock-sdk": "^1.1.0",
     "@anthropic-ai/sdk": "^1.3.0",
     "@github/copilot-sdk": "^1.0.26",
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -19,7 +18,7 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "overrides": {
     "@github/copilot-sdk": {

@@ -1,23 +1,16 @@
 // The customer chat agent: Claude plus the tools from the connected MCP servers.
 import Anthropic from "@anthropic-ai/sdk";
-import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 
-// "anthropic" calls the Claude API directly; "bedrock" calls Claude on Amazon Bedrock
-// using the standard AWS credential chain (env vars, ~/.aws profile, or an IAM role).
-// "copilot" uses the GitHub Copilot SDK instead (see copilotAgent.js).
-export const PROVIDER = (process.env.LLM_PROVIDER ?? "anthropic").toLowerCase();
-const ON_BEDROCK = PROVIDER === "bedrock";
-// Bedrock model IDs carry an "anthropic." prefix.
-export const MODEL = process.env.CLAUDE_MODEL ?? (ON_BEDROCK ? "anthropic.claude-opus-5-5" : "claude-opus-5-5");
-const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
-// Server-side refusal fallback is a Claude API feature; it is not available on Bedrock.
-const USE_FALLBACKS = !ON_BEDROCK && (process.env.CLAUDE_FALLBACKS ?? "true").toLowerCase() === "true";
-
-export function createClaudeClient() {
-  if (ON_BEDROCK) return new AnthropicBedrockMantle({ awsRegion: process.env.AWS_REGION });
-  if (PROVIDER !== "anthropic" && PROVIDER !== "copilot") throw new Error(`Unknown LLM_PROVIDER ${JSON.stringify(PROVIDER)}`);
-  return new Anthropic();
+// "copilot" (default) uses the GitHub Copilot SDK (see copilotAgent.js);
+// "anthropic" calls the Claude API directly with this file's agent.
+export const PROVIDER = (process.env.LLM_PROVIDER ?? "copilot").toLowerCase();
+if (!["copilot", "anthropic"].includes(PROVIDER)) {
+  throw new Error(`Unknown LLM_PROVIDER ${JSON.stringify(PROVIDER)}: use "copilot" or "anthropic"`);
 }
+export const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
+const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
+// Server-side refusal fallback: if Claude declines a request, the API retries it on another Claude model.
+const USE_FALLBACKS = (process.env.CLAUDE_FALLBACKS ?? "true").toLowerCase() === "true";
 export const BRAND_NAME = process.env.BRAND_NAME ?? "Sun Life";
 const MAX_TOOL_ROUNDS = 8;
 
@@ -46,7 +39,7 @@ export class Conversation {
 }
 
 export class InsuranceAgent {
-  constructor(hub, client = createClaudeClient()) {
+  constructor(hub, client = new Anthropic()) {
     this.hub = hub;
     this.client = client;
   }
