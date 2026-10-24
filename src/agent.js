@@ -4,6 +4,7 @@ import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 
 // "anthropic" calls the Claude API directly; "bedrock" calls Claude on Amazon Bedrock
 // using the standard AWS credential chain (env vars, ~/.aws profile, or an IAM role).
+// "copilot" uses the GitHub Copilot SDK instead (see copilotAgent.js).
 export const PROVIDER = (process.env.LLM_PROVIDER ?? "anthropic").toLowerCase();
 const ON_BEDROCK = PROVIDER === "bedrock";
 // Bedrock model IDs carry an "anthropic." prefix.
@@ -14,13 +15,13 @@ const USE_FALLBACKS = !ON_BEDROCK && (process.env.CLAUDE_FALLBACKS ?? "true").to
 
 export function createClaudeClient() {
   if (ON_BEDROCK) return new AnthropicBedrockMantle({ awsRegion: process.env.AWS_REGION });
-  if (PROVIDER !== "anthropic") throw new Error(`Unknown LLM_PROVIDER ${JSON.stringify(PROVIDER)}`);
+  if (PROVIDER !== "anthropic" && PROVIDER !== "copilot") throw new Error(`Unknown LLM_PROVIDER ${JSON.stringify(PROVIDER)}`);
   return new Anthropic();
 }
 export const BRAND_NAME = process.env.BRAND_NAME ?? "Sun Life";
 const MAX_TOOL_ROUNDS = 8;
 
-const SYSTEM_PROMPT = `You are the ${BRAND_NAME} virtual assistant, chatting with a signed-in customer about their own insurance policies and claims.
+export const SYSTEM_PROMPT = `You are the ${BRAND_NAME} virtual assistant, chatting with a signed-in customer about their own insurance policies and claims.
 
 Use the tools to look up the customer's real records before answering anything about their policies, coverage, premiums, beneficiaries or claims. Never guess or invent policy numbers, amounts, dates or statuses. If the tools don't have the answer, say so and suggest contacting their advisor or customer service.
 
@@ -31,7 +32,7 @@ Style: warm, clear and concise, in plain language a non-expert understands. Lead
 You can explain information but cannot change anything: you can't submit or edit claims, change beneficiaries, or process payments. For those, point the customer to the online portal, the mobile app or their advisor. Don't give medical, legal or tax advice, and don't promise a claim outcome.`;
 
 /** 'claims__get_claim_status' -> 'Get claim status' for the UI activity line. */
-const toolLabel = (name) => {
+export const toolLabel = (name) => {
   const s = name.split("__").pop().replaceAll("_", " ");
   return s.charAt(0).toUpperCase() + s.slice(1);
 };

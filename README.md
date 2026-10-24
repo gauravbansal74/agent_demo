@@ -36,6 +36,19 @@ LLM_PROVIDER=bedrock AWS_REGION=us-east-1 node src/server.js
 
 Out of the box `mcp-servers.json` points at two small **mock** MCP servers in `mock-mcp-servers/` (sample data in `data/`) so you can try the app before wiring in your real servers.
 
+### Running on GitHub Copilot (demo option)
+
+If you have a GitHub Copilot subscription but no Claude access, the chat can run on Copilot through the [GitHub Copilot SDK](https://github.com/github/copilot-sdk):
+
+```bash
+COPILOT_GITHUB_TOKEN=$(gh auth token) LLM_PROVIDER=copilot node src/server.js
+```
+
+- Auth: set `COPILOT_GITHUB_TOKEN` to a GitHub token for an account with Copilot (for example `gh auth token`, or a fine-grained token with the Copilot Requests permission).
+- Model: `COPILOT_MODEL` (default `gpt-5`). Any model your Copilot plan offers works, for example `claude-sonnet-4.5`.
+- Safety: Copilot's agent is built for coding and normally has file, shell and web tools. This app disables all of them; the session can only call the policy and claims tools, which still go through the same customer-id injection.
+- Every customer message counts against that Copilot account's usage. Use this for demos; check GitHub's terms before serving real customers.
+
 ## Connect your own MCP servers
 
 Edit `mcp-servers.json` (or point `MCP_CONFIG` at another file). See `mcp-servers.example.json`. Each server can use any of the three MCP transports:
@@ -61,10 +74,12 @@ If a tool has an argument named `customer_id` (configurable via `customerIdArgum
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API) or `bedrock` (Amazon Bedrock) |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API), `bedrock` (Amazon Bedrock) or `copilot` (GitHub Copilot SDK) |
 | `ANTHROPIC_API_KEY` | | Claude API key (not needed on Bedrock) |
 | `AWS_REGION` | | Bedrock region, e.g. `us-east-1` |
 | `CLAUDE_MODEL` | `claude-opus-5-5` (`anthropic.claude-opus-5-5` on Bedrock) | Model used for the chat |
+| `COPILOT_GITHUB_TOKEN` | | GitHub token with Copilot access (only for `copilot`) |
+| `COPILOT_MODEL` | `gpt-5` | Copilot model (only for `copilot`) |
 | `CLAUDE_EFFORT` | `medium` | `low` is faster and cheaper for simple Q&A |
 | `CLAUDE_FALLBACKS` | `true` | Server-side refusal fallback (Claude API only, ignored on Bedrock) |
 | `BRAND_NAME` | `Sun Life` | Name shown in the UI and used by the assistant |
@@ -81,6 +96,7 @@ Colours and font are CSS variables at the top of `public/styles.css`. **The logo
 src/
   server.js         Express app: sign-in, chat (Server-Sent Events), static UI
   agent.js          Claude tool-use loop and system prompt
+  copilotAgent.js   Same agent on the GitHub Copilot SDK (LLM_PROVIDER=copilot)
   mcpHub.js         Connects to MCP servers, maps tools, injects customer id
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing

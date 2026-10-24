@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import { BRAND_NAME, Conversation, InsuranceAgent } from "./agent.js";
+import { BRAND_NAME, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
 import { MCPHub, loadConfig } from "./mcpHub.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,8 +39,10 @@ export function createApp(agent) {
     res.json({ session_id: sessionId });
   });
 
-  app.delete("/api/session/:id", (req, res) => {
+  app.delete("/api/session/:id", async (req, res) => {
+    const convo = sessions.get(req.params.id);
     sessions.delete(req.params.id);
+    if (convo) await agent.endConversation?.(convo);
     res.json({ ok: true });
   });
 
@@ -80,10 +82,23 @@ export function createApp(agent) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const hub = await new MCPHub(loadConfig(MCP_CONFIG)).connect();
-  const agent = new InsuranceAgent(hub);
+  let agent;
+  if (PROVIDER === "copilot") {
+    const { CopilotAgent } = await import("./copilotAgent.js");
+    agent = new CopilotAgent(hub);
+  } else {
+    agent = new InsuranceAgent(hub);
+  }
   const port = Number(process.env.PORT ?? 3000);
-  const server = createApp(agent).listen(port, () => console.log(`${BRAND_NAME} assistant on http://localhost:${port}`));
-  const shutdown = () => server.close(() => hub.close().then(() => process.exit(0)));
+  const server = createApp(agent).listen(port, () =>
+    console.log(`${BRAND_NAME} assistant on http://localhost:${port} (LLM provider: ${PROVIDER})`),
+  );
+  const shutdown = () =>
+    server.close(async () => {
+      await agent.close?.();
+      await hub.close();
+      process.exit(0);
+    });
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }
