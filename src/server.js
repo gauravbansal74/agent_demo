@@ -4,13 +4,21 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import { BRAND_NAME, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
+import { BRAND_NAME, BRAND_TAGLINE, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
 import { MCPHub, loadConfig } from "./mcpHub.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MCP_CONFIG = process.env.MCP_CONFIG ?? path.join(ROOT, "mcp-servers.json");
 // Demo sign-in list. Replace the demo sign-in with your identity provider in production.
 const DEMO_CUSTOMERS = path.join(ROOT, "data", "customers.json");
+
+// Brand artwork: drop the official files into public/brand/ (see README). Falls back to the placeholder.
+const BRAND_DIR = path.join(ROOT, "public", "brand");
+const IMAGE_EXTS = ["svg", "png", "webp", "jpg"];
+function brandAsset(name) {
+  const ext = IMAGE_EXTS.find((e) => existsSync(path.join(BRAND_DIR, `${name}.${e}`)));
+  return ext ? `/static/brand/${name}.${ext}` : null;
+}
 
 const hasToolUse = (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use");
 
@@ -27,7 +35,14 @@ export function createApp(agent) {
           name: `${c.first_name} ${c.last_name}`,
         }))
       : [];
-    res.json({ brand_name: BRAND_NAME, demo_customers: customers });
+    res.json({
+      brand_name: BRAND_NAME,
+      brand_tagline: BRAND_TAGLINE,
+      // Full logo (symbol + wordmark) for the header, and the symbol alone for avatars and the favicon.
+      brand_logo: brandAsset("logo"),
+      brand_mark: brandAsset("mark") ?? "/static/logo-placeholder.svg",
+      demo_customers: customers,
+    });
   });
 
   // Demo sign-in: starts a chat session bound to one customer id.

@@ -1,4 +1,4 @@
-/* Sun Life-inspired palette: warm sunshine yellow on deep navy, lots of white space.
+/* Sunlife-inspired palette: warm sunshine yellow on deep navy, lots of white space.
    Brand colours and fonts are tokens so the official brand kit can be dropped in. */
 :root {
   --brand-yellow: #FFC72C;
@@ -38,20 +38,26 @@ button, input, textarea { font: inherit; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 24px;
-  background: var(--brand-navy);
-  color: #fff;
+  /* White header, like the brand's own sites, so the official logo artwork sits on its intended background. */
+  background: var(--surface);
+  color: var(--brand-navy);
   border-bottom: 4px solid var(--brand-yellow);
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark { width: 34px; height: 34px; }
+.brand-logo { height: 36px; width: auto; display: block; }
+.tagline {
+  margin: 0 0 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  font-size: .85rem; color: var(--brand-navy-2);
+}
 .brand-name { font-weight: 700; font-size: 1.35rem; letter-spacing: 0.2px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .greeting { font-weight: 600; }
 .link-btn {
-  background: none; border: 1px solid rgba(255,255,255,.5); color: #fff;
+  background: none; border: 1px solid var(--brand-navy-2); color: var(--brand-navy);
   padding: 6px 14px; border-radius: 999px; cursor: pointer;
 }
-.link-btn:hover { background: rgba(255,255,255,.1); }
+.link-btn:hover { background: var(--bg); }
 
 main { flex: 1; display: flex; min-height: 0; }
 

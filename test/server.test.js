@@ -19,7 +19,11 @@ after(async () => {
 
 test("config lists demo customers", async () => {
   const cfg = await (await fetch(`${base}/api/config`)).json();
-  assert.ok(cfg.brand_name);
+  assert.equal(cfg.brand_name, "Sunlife");
+  assert.equal(cfg.brand_tagline, "Making life brighter");
+  // No official artwork in public/brand/ yet, so the placeholder is used.
+  assert.equal(cfg.brand_logo, null);
+  assert.equal(cfg.brand_mark, "/static/logo-placeholder.svg");
   assert.ok(cfg.demo_customers.some((c) => c.customer_id === "C1001" && c.name === "Priya Sharma"));
 });
 

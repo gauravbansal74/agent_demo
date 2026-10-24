@@ -1,6 +1,6 @@
 # Insurance Customer Chat Agent (Node.js)
 
-A customer-facing chat assistant for an insurance company, built as a demo. A signed-in customer asks about their own policies and claims in plain language; an LLM answers by calling tools on your **policy and claims MCP servers**. The chat UI uses a Sun Life-inspired look (yellow on navy, clean type, rounded cards).
+A customer-facing chat assistant for an insurance company, built as a demo. A signed-in customer asks about their own policies and claims in plain language; an LLM answers by calling tools on your **policy and claims MCP servers**. The chat UI follows the Sunlife brand ("Making life brighter": sunshine yellow, deep navy, clean type, rounded cards) and shows the official logo once you add it to `public/brand/`.
 
 ```
 Browser (chat UI)  ──SSE──►  Express backend  ──►  LLM: GitHub Copilot or Claude API
@@ -83,13 +83,16 @@ If a tool has an argument named `customer_id` (configurable via `customerIdArgum
 | `CLAUDE_MODEL` | `claude-opus-5-5` | Claude model (only for `anthropic`) |
 | `CLAUDE_FALLBACKS` | `true` | Server-side refusal fallback (only for `anthropic`) |
 | `CLAUDE_EFFORT` | `medium` | Reasoning effort for both providers; `low` is faster and cheaper for simple Q&A |
-| `BRAND_NAME` | `Sun Life` | Name shown in the UI and used by the assistant |
+| `BRAND_NAME` | `Sunlife` | Name shown in the UI and used by the assistant |
+| `BRAND_TAGLINE` | `Making life brighter` | Tagline shown on the sign-in page |
 | `MCP_CONFIG` | `mcp-servers.json` | MCP server config file |
 | `PORT` | `3000` | HTTP port |
 
 ## Branding
 
-Colours and font are CSS variables at the top of `public/styles.css`. **The logo is a placeholder** (`public/logo-placeholder.svg`, a generic sun mark). Replace it with the official logo files from your brand team, and swap the font for the licensed brand typeface if you have one.
+- **Logo:** save the official artwork into `public/brand/` as `logo.svg` (full logo for the header) and `mark.svg` (the symbol alone, for the chat avatar and browser tab). PNG, WebP or JPG also work. Restart the server and it's picked up automatically; see `public/brand/README.md`. Until then a placeholder sun icon and the brand name in text are shown.
+- **Name and tagline:** `BRAND_NAME` (default `Sunlife`) and `BRAND_TAGLINE` (default `Making life brighter`). The name is also used by the assistant when it introduces itself.
+- **Colours and font:** CSS variables at the top of `public/styles.css`. Swap in the exact values from your brand guidelines, and the licensed brand typeface if you have one.
 
 ## Project layout
 
@@ -100,6 +103,7 @@ src/
   copilotAgent.js   Same agent on the GitHub Copilot SDK (default)
   mcpHub.js         Connects to MCP servers, maps tools, injects customer id
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
+  brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing
 data/               Sample customers, policies and claims for the mocks
 test/               Offline tests (the LLM is faked; mock MCP servers run for real)

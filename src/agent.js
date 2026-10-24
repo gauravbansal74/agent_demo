@@ -11,7 +11,8 @@ export const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
 const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
 // Server-side refusal fallback: if Claude declines a request, the API retries it on another Claude model.
 const USE_FALLBACKS = (process.env.CLAUDE_FALLBACKS ?? "true").toLowerCase() === "true";
-export const BRAND_NAME = process.env.BRAND_NAME ?? "Sun Life";
+export const BRAND_NAME = process.env.BRAND_NAME ?? "Sunlife";
+export const BRAND_TAGLINE = process.env.BRAND_TAGLINE ?? "Making life brighter";
 const MAX_TOOL_ROUNDS = 8;
 
 export const SYSTEM_PROMPT = `You are the ${BRAND_NAME} virtual assistant, chatting with a signed-in customer about their own insurance policies and claims.

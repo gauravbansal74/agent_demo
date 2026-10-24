@@ -8,9 +8,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
 
 ### Added
+- Official logo support: files dropped into `public/brand/` (`logo.*` for the header, `mark.*` for the avatar and browser tab) are picked up automatically, with the placeholder as fallback.
+- Brand tagline "Making life brighter" on the sign-in page (`BRAND_TAGLINE`).
 - `CHANGELOG.md` (this file), and a Contributing note in the README to keep it updated.
 
 ### Changed
+- Branding updated to the new one-word **Sunlife** brand (announced October 2026): `BRAND_NAME` now defaults to `Sunlife`.
+- The header is now white with the yellow underline, so the official logo sits on its intended background.
 - GitHub Copilot is now the default LLM (`LLM_PROVIDER` defaults to `copilot`); the Claude API stays available with `LLM_PROVIDER=anthropic`. An unknown `LLM_PROVIDER` value now stops the server with a clear error.
 - `npm start` and `npm run dev` now load settings from `.env`.
 - Node.js requirement set to 20.19+ or 22.12+ (needed by the Copilot SDK).

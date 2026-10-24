@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let sessionId = null;
 let busy = false;
+let brandMark = "/static/logo-placeholder.svg";
 
 function renderMarkdown(text) {
   if (window.marked && window.DOMPurify) return DOMPurify.sanitize(marked.parse(text));
@@ -13,7 +14,20 @@ function renderMarkdown(text) {
 async function loadConfig() {
   const cfg = await fetch("/api/config").then((r) => r.json());
   document.querySelectorAll("[data-brand]").forEach((el) => (el.textContent = cfg.brand_name));
+  document.querySelectorAll("[data-tagline]").forEach((el) => (el.textContent = cfg.brand_tagline));
   document.title = `${cfg.brand_name} Customer Assistant`;
+  brandMark = cfg.brand_mark;
+  document.querySelectorAll("[data-brand-mark]").forEach((el) => (el.src = brandMark));
+  $("favicon").href = brandMark;
+  if (cfg.brand_logo) {
+    // The official logo already contains the name, so it replaces the mark + text in the header.
+    const logo = $("brand-logo");
+    logo.src = cfg.brand_logo;
+    logo.alt = cfg.brand_name;
+    logo.hidden = false;
+    document.querySelector(".brand .brand-mark").hidden = true;
+    document.querySelector(".brand .brand-name").hidden = true;
+  }
   for (const c of cfg.demo_customers) {
     const b = document.createElement("button");
     b.type = "button";
@@ -70,7 +84,7 @@ function addMessage(role) {
   const msg = document.createElement("div");
   msg.className = `msg ${role}`;
   if (role === "bot") {
-    msg.innerHTML = `<div class="avatar" aria-hidden="true"><img src="/static/logo-placeholder.svg" alt=""></div>`;
+    msg.innerHTML = `<div class="avatar" aria-hidden="true"><img src="${brandMark}" alt=""></div>`;
   }
   const bubble = document.createElement("div");
   bubble.className = "bubble";

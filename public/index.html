@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Customer Assistant</title>
-  <link rel="icon" href="/static/logo-placeholder.svg">
+  <link rel="icon" href="/static/logo-placeholder.svg" id="favicon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
@@ -15,8 +15,9 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <img src="/static/logo-placeholder.svg" alt="" class="brand-mark">
-      <span class="brand-name" data-brand>Sun Life</span>
+      <img src="/static/logo-placeholder.svg" alt="" class="brand-mark" data-brand-mark>
+      <img alt="" class="brand-logo" id="brand-logo" hidden>
+      <span class="brand-name" data-brand>Sunlife</span>
     </div>
     <div class="topbar-right" id="userbar" hidden>
       <span class="greeting" id="greeting"></span>
@@ -28,6 +29,7 @@
     <!-- Sign-in (demo) -->
     <section class="signin" id="signin">
       <div class="hero">
+        <p class="tagline" data-tagline>Making life brighter</p>
         <h1>Hi, how can we help today?</h1>
         <p>Ask our virtual assistant about your policies, coverage, premiums and claims, any time.</p>
       </div>
@@ -45,7 +47,7 @@
     <section class="chat" id="chat" hidden>
       <div class="messages" id="messages" aria-live="polite">
         <div class="msg bot welcome">
-          <div class="avatar" aria-hidden="true"><img src="/static/logo-placeholder.svg" alt=""></div>
+          <div class="avatar" aria-hidden="true"><img src="/static/logo-placeholder.svg" alt="" data-brand-mark></div>
           <div class="bubble">
             <p><strong>Welcome!</strong> I can look up your policies and claims and explain them in plain language. What would you like to know?</p>
             <div class="suggestions" id="suggestions">
