@@ -36,7 +36,7 @@ const call = async (name, args, customerId = "C1001", uploads) => {
 };
 const DRAFT = {
   policy_number: "ACC-2020-445210",
-  injured_person: "Meera",
+  injured_person: "Lucy",
   incident_date: "2026-10-18",
   incident_location: "Riverside Park, Toronto",
   incident_description: "Fell off her bike",

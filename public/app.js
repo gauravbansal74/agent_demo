@@ -28,6 +28,7 @@ async function loadConfig() {
     document.querySelector(".brand .brand-mark").hidden = true;
     document.querySelector(".brand .brand-name").hidden = true;
   }
+  if (cfg.flow) setupFlow(cfg.flow);
   for (const c of cfg.demo_customers) {
     const b = document.createElement("button");
     b.type = "button";
@@ -104,7 +105,8 @@ function setBusy(value) {
 }
 
 /** Adds a bot bubble and fills it from an SSE response (POST url with body). */
-async function streamReply(url, body, { onConfirmed } = {}) {
+async function streamReply(url, body, { onConfirmed, label } = {}) {
+  flowTurn(label);
   const bubble = addMessage("bot");
   bubble.innerHTML = `<div class="activity"></div><div class="content"><span class="typing"><span></span><span></span><span></span></span></div>`;
   const activity = bubble.querySelector(".activity");
@@ -143,6 +145,9 @@ async function streamReply(url, body, { onConfirmed } = {}) {
           activity.appendChild(chip);
         } else if (event.type === "confirm") {
           bubble.appendChild(confirmCard(event));
+        } else if (event.type === "trace") {
+          flowStep(event);
+          continue;
         } else if (event.type === "confirmed") {
           onConfirmed?.(event);
         } else if (event.type === "error") {
@@ -175,7 +180,11 @@ async function send(text) {
   if (files.length) bubble.append(fileStrip(files));
   if (text) bubble.append(el("div", "", text));
   try {
-    await streamReply("/api/chat", { session_id: sessionId, message: text, attachments: files.map((f) => f.id) });
+    await streamReply(
+      "/api/chat",
+      { session_id: sessionId, message: text, attachments: files.map((f) => f.id) },
+      { label: text || `${files.length} file${files.length === 1 ? "" : "s"}` },
+    );
   } finally {
     setBusy(false);
   }
@@ -349,6 +358,7 @@ function confirmCard(event) {
         "/api/confirm",
         { session_id: sessionId, confirmation_id: event.id, approved, attested: box.checked },
         {
+          label: approved ? `Pressed “${event.confirm_label ?? "Confirm"}”` : "Pressed “Cancel”",
           onConfirmed: (e) => {
             if (e.outcome === "done") finish(`Submitted${e.result?.claim_id ? ` · ${e.result.claim_id}` : ""}`, "ok");
             else if (e.outcome === "cancelled") finish("Cancelled", "cancelled");
@@ -368,6 +378,130 @@ function confirmCard(event) {
   ok.onclick = () => answer(true);
   cancel.onclick = () => answer(false);
   return card;
+}
+
+// ---- Behind the scenes: live technical flow of each message ----
+
+const flow = { nodes: {}, running: {}, turn: null, rows: {} };
+const KIND_LABEL = { request: "Server", llm: "AI model", tool: "MCP", confirm: "Confirmation" };
+
+function setupFlow(info) {
+  const map = $("flow-map");
+  const node = (key, title, sub) => {
+    const n = el("div", "flow-node");
+    n.append(el("strong", "", title), el("span", "", sub));
+    flow.nodes[key] = n;
+    return n;
+  };
+  const arrow = () => el("span", "flow-arrow", "→");
+  const mcp = el("div", "flow-mcp");
+  for (const s of info.servers) mcp.append(node(`mcp:${s.name}`, `MCP: ${s.name}`, s.transport.replace("_", " ")));
+  map.append(
+    node("browser", "Browser", "chat UI"),
+    arrow(),
+    node("server", "Backend", "Node.js + MCP hub"),
+    arrow(),
+    node("llm", info.llm?.provider ?? "AI model", info.llm?.model ?? ""),
+    arrow(),
+    mcp,
+  );
+  const toggle = $("flow-toggle");
+  toggle.hidden = false;
+  const fitBelowHeader = () => document.documentElement.style.setProperty("--topbar-h", `${document.querySelector(".topbar").offsetHeight}px`);
+  addEventListener("resize", fitBelowHeader);
+  const open = (on) => {
+    fitBelowHeader();
+    $("flow").hidden = !on;
+    document.body.classList.toggle("flow-open", on);
+    toggle.setAttribute("aria-pressed", String(on));
+    try {
+      localStorage.setItem("flow-open", on ? "1" : "");
+    } catch {}
+  };
+  toggle.onclick = () => open($("flow").hidden);
+  $("flow-close").onclick = () => open(false);
+  try {
+    if (localStorage.getItem("flow-open")) open(true);
+  } catch {}
+}
+
+const nodeFor = (e) =>
+  e.kind === "tool" ? `mcp:${e.detail?.server ?? flow.rows[e.id]?.server}` : { request: "server", llm: "llm", confirm: "browser" }[e.kind];
+
+function lightNode(key, delta) {
+  const n = flow.nodes[key];
+  if (!n) return;
+  flow.running[key] = Math.max(0, (flow.running[key] ?? 0) + delta);
+  n.classList.toggle("active", flow.running[key] > 0);
+  if (delta > 0) n.classList.add("used");
+}
+
+function flowTurn(label) {
+  if (!Object.keys(flow.nodes).length) return;
+  $("flow-log").querySelector(".flow-empty")?.remove();
+  Object.values(flow.nodes).forEach((n) => n.classList.remove("used"));
+  const turn = el("section", "flow-turn");
+  const head = el("header", "flow-turn-head");
+  head.append(el("span", "flow-turn-label", label ?? "Message"), el("span", "flow-ms", "…"));
+  turn.append(head, el("ol", "flow-steps"));
+  $("flow-log").append(turn);
+  flow.turn = turn;
+  lightNode("browser", 1);
+  setTimeout(() => lightNode("browser", -1), 400);
+}
+
+const fmtMs = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
+const oneLine = (v) => (typeof v === "string" ? v : JSON.stringify(v));
+
+function summary(e, end) {
+  const d = e.detail ?? {};
+  if (e.kind === "request" && end) return d.status === "ok" ? "reply streamed back to the browser" : d.status;
+  if (e.kind === "request" && !end) return d.customer_id ? `customer ${d.customer_id}${d.attachments?.length ? ` · ${d.attachments.length} file(s)` : ""}` : "";
+  if (e.kind === "llm" && !end) return [d.model, d.messages_sent && `${d.messages_sent} messages`, d.tools_offered && `${d.tools_offered.length} tools offered`].filter(Boolean).join(" · ");
+  if (e.kind === "llm" && end) {
+    const calls = d.tool_calls?.length ? `asks for ${d.tool_calls.map((c) => c.name.split("__").pop()).join(", ")}` : d.stop_reason === "end_turn" ? "writes the reply" : d.stop_reason;
+    const tokens = d.tokens?.input ? ` · ${d.tokens.input.toLocaleString()} in / ${d.tokens.output.toLocaleString()} out tokens` : "";
+    return d.reply_characters !== undefined ? `${d.reply_characters} characters of reply` : `${calls ?? ""}${tokens}`;
+  }
+  if (e.kind === "tool" && !end) return `args ${oneLine(d.arguments)}`;
+  if (e.kind === "tool" && end) return d.status === "error" ? `error: ${oneLine(d.result).slice(0, 120)}` : `returned ${oneLine(d.result).length.toLocaleString()} characters`;
+  return d.note ?? "";
+}
+
+function flowStep(e) {
+  if (!flow.turn) return;
+  if (e.phase === "end") {
+    const row = flow.rows[e.id];
+    if (!row) return;
+    lightNode(row.node, -1);
+    row.el.classList.remove("running");
+    if (e.detail?.status && e.detail.status !== "ok") row.el.classList.add("failed");
+    row.el.querySelector(".flow-ms").textContent = fmtMs(e.ms);
+    const s = summary({ ...e, kind: row.kind }, true);
+    if (s) row.el.querySelector(".flow-sum").textContent = s;
+    row.pre.textContent += `\n\n// Result\n${JSON.stringify(e.detail, null, 2)}`;
+    if (row.kind === "request") flow.turn.querySelector(".flow-turn-head .flow-ms").textContent = fmtMs(e.ms);
+    return;
+  }
+  const li = el("li", `flow-step k-${e.kind}${e.phase === "start" ? " running" : ""}`);
+  const top = el("div", "flow-step-top");
+  top.append(el("span", "flow-kind", KIND_LABEL[e.kind] ?? e.kind), el("span", "flow-title", e.title), el("span", "flow-ms", ""));
+  const details = el("details");
+  details.append(el("summary", "", "Details"));
+  const pre = el("pre", "", `// ${e.phase === "start" ? "Sent" : "Details"}\n${JSON.stringify(e.detail ?? {}, null, 2)}`);
+  details.append(pre);
+  li.append(top, el("div", "flow-sum", summary(e, false)), details);
+  flow.turn.querySelector(".flow-steps").append(li);
+  const node = nodeFor(e);
+  if (e.phase === "start") {
+    flow.rows[e.id] = { el: li, pre, kind: e.kind, node, server: e.detail?.server };
+    lightNode(node, 1);
+  } else {
+    lightNode(node, 1);
+    setTimeout(() => lightNode(node, -1), 600);
+  }
+  const log = $("flow-log");
+  log.scrollTop = log.scrollHeight;
 }
 
 loadConfig();

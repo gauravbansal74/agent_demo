@@ -28,6 +28,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { clip, noTrace } from "./trace.js";
 
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_VAR = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
@@ -150,8 +151,9 @@ export class MCPHub {
   /**
    * Runs a tool. Resolves to { text, isError }.
    * `uploads` is the chat's Map of upload id -> { name, type, data (Buffer) }.
+   * `trace` records the call for the "Behind the scenes" panel (see trace.js).
    */
-  async call(claudeName, args, customerId, uploads = new Map()) {
+  async call(claudeName, args, customerId, uploads = new Map(), trace = noTrace) {
     const tool = this.tools.get(claudeName);
     if (!tool) return { text: `Unknown tool ${claudeName}`, isError: true };
     const callArgs = { ...(args ?? {}) };
@@ -166,16 +168,30 @@ export class MCPHub {
       callArgs[this.uploadArgs.fileName] = file.name;
       callArgs[this.uploadArgs.mimeType] = file.type;
     }
+    const step = trace.start("tool", `MCP ${tool.server} › ${tool.mcpName}`, {
+      server: tool.server,
+      transport: this.config.servers[tool.server]?.transport ?? "stdio",
+      tool: tool.mcpName,
+      arguments: tool.takesUpload
+        ? { ...callArgs, [this.uploadArgs.content]: `<${callArgs[this.uploadArgs.content].length} base64 characters>` }
+        : callArgs,
+      added_by_backend: [
+        ...(tool.scoped ? [this.customerArg] : []),
+        ...(tool.takesUpload ? Object.values(this.uploadArgs) : []),
+      ],
+    });
     try {
       const result = await tool.client.callTool({ name: tool.mcpName, arguments: callArgs });
       const text =
         result.structuredContent !== undefined
           ? JSON.stringify(result.structuredContent)
           : (result.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+      step.end({ status: result.isError ? "error" : "ok", result: clip(text) });
       return { text: text || "(no content)", isError: Boolean(result.isError) };
     } catch (err) {
       // Surface to Claude as a tool error rather than failing the chat.
       console.error(`MCP tool ${claudeName} failed`, err);
+      step.end({ status: "error", result: err.message });
       return { text: `Tool call failed: ${err.message}`, isError: true };
     }
   }

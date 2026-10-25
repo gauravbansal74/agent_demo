@@ -29,13 +29,18 @@ export async function holdForConfirmation(hub, convo, name, args) {
   if (!rule) return null;
   let preview = null;
   if (rule.preview) {
-    const { text, isError } = await hub.call(rule.preview, args, convo.customerId, convo.uploads);
+    const { text, isError } = await hub.call(rule.preview, args, convo.customerId, convo.uploads, convo.trace);
     preview = parse(text);
     // Nothing to confirm (e.g. unknown draft): let the LLM see the problem and fix it.
     if (isError || preview?.error) return { event: null, result: { text, isError: true } };
   }
   // Only the latest request can be confirmed; an older card stops working.
   convo.pending = { id: randomUUID(), name, args };
+  convo.trace.point("confirm", `Held ${name} for the customer's confirmation`, {
+    tool: name,
+    arguments: args,
+    note: "Not run. The customer sees a confirmation card; the backend runs the tool only after they press the button.",
+  });
   return {
     event: {
       type: "confirm",
@@ -58,13 +63,15 @@ export async function resolveConfirmation(hub, convo, id, approved) {
   if (!pending || pending.id !== id) return null;
   convo.pending = null; // cleared before any await, so a double click can't run the tool twice
   if (!approved) {
+    convo.trace.point("confirm", `Customer cancelled: ${pending.name} not run`, { tool: pending.name });
     return {
       outcome: "cancelled",
       result: null,
       note: "The customer pressed Cancel on the confirmation card, so nothing was submitted. Acknowledge this briefly and ask whether they'd like to change any details or leave it for now.",
     };
   }
-  const { text, isError } = await hub.call(pending.name, pending.args, convo.customerId, convo.uploads);
+  convo.trace.point("confirm", `Customer confirmed: running ${pending.name}`, { tool: pending.name, arguments: pending.args });
+  const { text, isError } = await hub.call(pending.name, pending.args, convo.customerId, convo.uploads, convo.trace);
   console.log(`confirmed tool ${pending.name}(${JSON.stringify(pending.args)}) error=${isError}`);
   const result = parse(text);
   const failed = isError || Boolean(result?.error);

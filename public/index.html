@@ -20,6 +20,10 @@
       <span class="brand-name" data-brand>Sunlife</span>
     </div>
     <div class="topbar-right" id="userbar" hidden>
+      <button class="link-btn flow-toggle" id="flow-toggle" type="button" aria-pressed="false" aria-controls="flow" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h6M4 12h10M4 18h16M14 6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Behind the scenes</span>
+      </button>
       <span class="greeting" id="greeting"></span>
       <button class="link-btn" id="signout">Sign out</button>
     </div>
@@ -75,5 +79,20 @@
       <p class="disclaimer">The assistant can make mistakes. For decisions about your coverage, please confirm with your advisor.</p>
     </section>
   </main>
+
+  <!-- Behind the scenes: live technical flow of each message (demo; turn off with SHOW_FLOW=false) -->
+  <aside class="flow" id="flow" hidden aria-label="Behind the scenes">
+    <div class="flow-head">
+      <div>
+        <strong>Behind the scenes</strong>
+        <span>What happens for each message, live</span>
+      </div>
+      <button class="flow-close" id="flow-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="flow-map" id="flow-map" aria-hidden="true"></div>
+    <div class="flow-log" id="flow-log" aria-live="off">
+      <p class="flow-empty">Send a message to see each step here as it happens: the message reaching the server, each request to the AI model, every MCP tool call with its arguments and result, and how long each took.</p>
+    </div>
+  </aside>
 </body>
 </html>

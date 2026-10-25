@@ -1,29 +1,29 @@
 [
   {
     "customer_id": "C1001",
-    "first_name": "Priya",
-    "last_name": "Sharma",
-    "email": "priya.sharma@example.com",
+    "first_name": "Emily",
+    "last_name": "Carter",
+    "email": "emily.carter@example.com",
     "phone": "+1-416-555-0142",
     "province": "ON",
     "member_since": "2014-03-01",
-    "advisor": {"name": "Daniel Okafor", "phone": "+1-416-555-0199", "email": "d.okafor@advisors.example.com"}
+    "advisor": {"name": "Daniel Hughes", "phone": "+1-416-555-0199", "email": "d.hughes@advisors.example.com"}
   },
   {
     "customer_id": "C1002",
-    "first_name": "Marc",
-    "last_name": "Tremblay",
-    "email": "marc.tremblay@example.com",
+    "first_name": "Thomas",
+    "last_name": "Wright",
+    "email": "thomas.wright@example.com",
     "phone": "+1-514-555-0177",
     "province": "QC",
     "member_since": "2019-09-15",
-    "advisor": {"name": "Sophie Gagnon", "phone": "+1-514-555-0123", "email": "s.gagnon@advisors.example.com"}
+    "advisor": {"name": "Sophie Walker", "phone": "+1-514-555-0123", "email": "s.walker@advisors.example.com"}
   },
   {
     "customer_id": "C1003",
-    "first_name": "Aisha",
-    "last_name": "Bello",
-    "email": "aisha.bello@example.com",
+    "first_name": "Sarah",
+    "last_name": "Mitchell",
+    "email": "sarah.mitchell@example.com",
     "phone": "+1-604-555-0164",
     "province": "BC",
     "member_since": "2022-01-10",

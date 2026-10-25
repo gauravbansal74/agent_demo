@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { BRAND_NAME, BRAND_TAGLINE, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
 import { resolveConfirmation } from "./confirmations.js";
+import { SHOW_FLOW, noTrace, tracer } from "./trace.js";
 import { MCPHub, loadConfig } from "./mcpHub.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,16 +47,22 @@ function attachmentsNote(files, fileTools) {
   return `<attachments>\n${list}\n${how}\n</attachments>\n\n`;
 }
 
-/** Streams one assistant turn to the browser as Server-Sent Events. */
-async function streamTurn(res, convo, events, first) {
+/**
+ * Streams one assistant turn to the browser as Server-Sent Events.
+ * `events(convo)` returns the turn's UI events; `request` describes the turn for the flow panel.
+ */
+async function streamTurn(res, convo, request, events) {
   convo.busy = true;
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
-  if (first) send(first);
+  convo.trace = SHOW_FLOW ? tracer(send) : noTrace;
+  const turn = convo.trace.start("request", request.title, request.detail);
+  let status = "ok";
   try {
-    for await (const event of events) send(event);
+    for await (const event of events()) send(event);
   } catch (err) {
     console.error("chat turn failed", err);
+    status = `failed: ${err.message}`;
     // Drop the half-finished turn so the conversation stays valid for the next message.
     while (convo.messages.length) {
       const last = convo.messages.at(-1);
@@ -65,6 +72,8 @@ async function streamTurn(res, convo, events, first) {
     send({ type: "error", text: "Something went wrong on our side. Please try again." });
     send({ type: "done" });
   } finally {
+    turn.end({ status });
+    convo.trace = noTrace;
     convo.busy = false;
   }
   res.end();
@@ -92,6 +101,12 @@ export function createApp(agent) {
       brand_logo: brandAsset("logo"),
       brand_mark: brandAsset("mark") ?? "/static/logo-placeholder.svg",
       demo_customers: customers,
+      flow: SHOW_FLOW
+        ? {
+            llm: agent.describe?.() ?? null,
+            servers: Object.entries(agent.hub.config.servers).map(([name, srv]) => ({ name, transport: srv.transport ?? "stdio" })),
+          }
+        : null,
     });
   });
 
@@ -129,7 +144,20 @@ export function createApp(agent) {
 
     if (convo.busy) return res.status(429).json(BUSY);
     const text = (files.length ? attachmentsNote(files, agent.hub.fileTools()) : "") + (defuseTags(message) || "(The customer sent the attached files without a message.)");
-    await streamTurn(res, convo, agent.reply(convo, text));
+    await streamTurn(
+      res,
+      convo,
+      {
+        title: "Message received",
+        detail: {
+          customer_id: convo.customerId,
+          message,
+          attachments: files.map((f) => ({ upload_id: f.id, name: f.name, type: f.type, size: kb(f.size) })),
+          sent_to_llm: text,
+        },
+      },
+      () => agent.reply(convo, text),
+    );
   });
 
   // A file the customer attaches in the chat (e.g. a receipt photo). Raw body; name in X-File-Name.
@@ -163,19 +191,18 @@ export function createApp(agent) {
     if (approved && req.body?.attested !== true) {
       return res.status(422).json({ error: "Please confirm the information is true and complete." });
     }
-    convo.busy = true; // also covers running the tool
-    let outcome;
-    try {
-      outcome = await resolveConfirmation(agent.hub, convo, String(req.body?.confirmation_id ?? ""), approved);
-    } finally {
-      convo.busy = false;
-    }
-    if (!outcome) return res.status(409).json({ error: "This request has expired. Please ask the assistant again." });
-    await streamTurn(res, convo, agent.continueAfter(convo, outcome.note), {
-      type: "confirmed",
-      outcome: outcome.outcome,
-      result: outcome.result,
-    });
+    const id = String(req.body?.confirmation_id ?? "");
+    if (convo.pending?.id !== id) return res.status(409).json({ error: "This request has expired. Please ask the assistant again." });
+    await streamTurn(
+      res,
+      convo,
+      { title: approved ? "Customer pressed confirm" : "Customer pressed cancel", detail: { approved, attested: req.body?.attested === true } },
+      async function* () {
+        const outcome = await resolveConfirmation(agent.hub, convo, id, approved);
+        yield { type: "confirmed", outcome: outcome.outcome, result: outcome.result };
+        yield* agent.continueAfter(convo, outcome.note);
+      },
+    );
   });
 
   app.use("/static", express.static(path.join(ROOT, "public")));

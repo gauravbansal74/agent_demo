@@ -24,12 +24,17 @@ const call = async (name, args, customerId = "C1001") => {
 };
 const post = (url, body) =>
   fetch(`${base}${url}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+// Chat events only; the flow panel's trace events are tested in flow.test.js.
 const sseEvents = async (res) =>
-  (await res.text()).split("\n").filter((l) => l.startsWith("data: ")).map((l) => JSON.parse(l.slice(6)));
+  (await res.text())
+    .split("\n")
+    .filter((l) => l.startsWith("data: "))
+    .map((l) => JSON.parse(l.slice(6)))
+    .filter((e) => e.type !== "trace");
 
 const CLAIM = {
   policy_number: "ACC-2020-445210",
-  injured_person: "Meera",
+  injured_person: "Lucy",
   incident_date: "2026-10-18",
   incident_location: "Riverside Park, Toronto",
   incident_description: "Fell off her bike on a wet path",
@@ -43,7 +48,7 @@ test("accident claim draft is checked against the policy and estimated", async (
   const draft = await call("claims__create_accident_claim", CLAIM);
   assert.match(draft.draft_id, /^DRF-\d{6}$/);
   assert.equal(draft.status, "draft");
-  assert.deepEqual(draft.summary[0], { label: "Injured person", value: "Meera Sharma (dependent)" });
+  assert.deepEqual(draft.summary[0], { label: "Injured person", value: "Lucy Carter (dependent)" });
   // Medical expenses capped at $10,000 per accident, 2 days x $200, minor fracture $1,000.
   assert.deepEqual(draft.benefits.map((b) => b.estimated_payout), [10000, 400, 1000]);
   assert.equal(draft.estimated_total_payout, 11400);
@@ -80,7 +85,7 @@ test("submitted claim shows up in the customer's claims, once", async () => {
 
   const status = await call("claims__get_claim_status", { claim_id: filed.claim_id });
   assert.equal(status.status, "submitted");
-  assert.equal(status.injured_person, "Meera Sharma (dependent)");
+  assert.equal(status.injured_person, "Lucy Carter (dependent)");
   const list = await call("claims__list_claims", {});
   assert.ok(list.result.some((c) => c.claim_id === filed.claim_id));
 });

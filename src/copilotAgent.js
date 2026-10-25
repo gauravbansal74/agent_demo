@@ -60,6 +60,11 @@ export class CopilotAgent {
     this.started = null;
   }
 
+  /** For the "Behind the scenes" panel. */
+  describe() {
+    return { provider: "GitHub Copilot", model: COPILOT_MODEL };
+  }
+
   async #session(convo) {
     if (convo.copilotSession) return convo.copilotSession;
     this.started ??= this.client.start();
@@ -74,7 +79,7 @@ export class CopilotAgent {
           // Tools that change something wait for the customer's confirmation instead of running now.
           const held = await holdForConfirmation(this.hub, convo, t.name, args);
           if (held?.event) convo.emit?.(held.event);
-          const { text, isError } = held?.result ?? (await this.hub.call(t.name, args, convo.customerId, convo.uploads));
+          const { text, isError } = held?.result ?? (await this.hub.call(t.name, args, convo.customerId, convo.uploads, convo.trace));
           return { textResultForLlm: text, resultType: isError ? "failure" : "success" };
         },
       }),
@@ -121,9 +126,16 @@ export class CopilotAgent {
     ];
     // Tool handlers run inside the session, so they hand UI events (confirmation cards) to this turn.
     convo.emit = (event) => queue.push(event);
+    // Copilot runs its own tool loop, so the whole turn is one step; MCP calls show up inside it.
+    const step = convo.trace.start("llm", "GitHub Copilot turn", { model: COPILOT_MODEL, effort: EFFORT });
+    let chars = 0;
     try {
       await session.send(message);
-      yield* queue.drain();
+      for await (const event of queue.drain()) {
+        if (event.type === "text") chars += event.text.length;
+        yield event;
+      }
+      step.end({ reply_characters: chars });
     } finally {
       convo.emit = null;
       for (const off of unsubscribe) off();

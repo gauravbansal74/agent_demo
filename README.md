@@ -74,7 +74,7 @@ If a tool has an argument named `customer_id` (configurable via `customerIdArgum
 
 ## Accident claims in the chat
 
-Customers with a personal accident policy can file a claim by chatting, for example "I had an accident and want to make a claim". The demo customers Priya Sharma (C1001) and Aisha Bello (C1003) each have one.
+Customers with a personal accident policy can file a claim by chatting, for example "I had an accident and want to make a claim". The demo customers Emily Carter (C1001) and Sarah Mitchell (C1003) each have one.
 
 1. The assistant asks for the details a step at a time: who was hurt, when and where, what happened, the injuries, and which benefits apply (medical expenses, nights in hospital, fracture).
 2. It creates a **draft** (`create_accident_claim`). The claims server checks it against the policy: the policy must be an active accident policy on this customer's account, the injured person must be covered, and the accident must be within the 90-day claim window and not in the future. It returns the estimated payout (with policy limits applied) and the documents needed.
@@ -109,6 +109,18 @@ The mock server checks the file type again, records a SHA-256 hash, and keeps on
 
 In the mock server, filed claims and drafts live in memory and disappear when the app restarts. Other claim types (health, dental, life and so on) are still pointed to the portal or app; accidental death claims are referred to customer service.
 
+## Behind the scenes (live technical flow)
+
+For demos, the **Behind the scenes** button in the header opens a panel that shows, live, what happens for every message:
+
+- a map of the parts involved (browser, backend, the AI model, each MCP server) that light up as each one works
+- a timeline per message: the message reaching the backend, each request to the AI model (with the tools it asked for and token counts), every MCP tool call with its arguments and result, confirmation steps, and how long each took
+- expandable details with the exact data sent and received. It shows which arguments the backend added itself (the customer id, file contents), and file contents are shown only as their size
+
+With GitHub Copilot, Copilot runs its own tool loop, so its whole turn shows as one AI step with the MCP calls inside it. With the Claude API, each request to Claude shows separately.
+
+The panel shows customer data and tool results, so turn it off for real customers with `SHOW_FLOW=false`; the server then sends no trace at all.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -124,6 +136,7 @@ In the mock server, filed claims and drafts live in memory and disappear when th
 | `BRAND_TAGLINE` | `Making life brighter` | Tagline shown on the sign-in page |
 | `MCP_CONFIG` | `mcp-servers.json` | MCP server config file |
 | `DEMO_CUSTOMERS` | `data/customers.json` | Customers offered on the demo sign-in page. The id is read from the field named by `customerIdArgument` (e.g. `clientId`), or `customer_id` |
+| `SHOW_FLOW` | `true` | Show the "Behind the scenes" panel; set `false` for real customers |
 | `PORT` | `3000` | HTTP port |
 
 ## Branding
@@ -141,6 +154,7 @@ src/
   copilotAgent.js   Same agent on the GitHub Copilot SDK (default)
   mcpHub.js         Connects to MCP servers, maps tools, injects customer id
   confirmations.js  Holds tools such as submit_claim until the customer confirms
+  trace.js          Live step-by-step trace for the "Behind the scenes" panel
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
   brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing
@@ -163,6 +177,7 @@ The tests need no API keys: Claude and Copilot are replaced by scripted fakes, w
 - Replace the demo sign-in (`POST /api/session`) with your real customer authentication and derive `customer_id` from the verified identity.
 - Move chat sessions from memory to Redis or a database if you run more than one instance.
 - Add rate limiting and audit logging of tool calls to suit your compliance requirements. Log each confirmation (who, when, what was attested) as part of the claim record.
+- Set `SHOW_FLOW=false` so the technical panel and its data are not sent to customers.
 - Scan uploaded files for malware and store them in your document system; the demo keeps them in memory for the chat only.
 - Have your claims server enforce its own rules (ownership, claim window, limits, duplicates) as the mock does; don't rely on the LLM or the UI for them.
 

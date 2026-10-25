@@ -10,7 +10,7 @@
     "coverage_amount": 750000,
     "currency": "CAD",
     "premium": {"amount": 62.40, "frequency": "monthly", "next_due": "2026-11-01", "payment_method": "Pre-authorized debit ••••4821"},
-    "beneficiaries": [{"name": "Arjun Sharma", "relationship": "spouse", "share_pct": 100}],
+    "beneficiaries": [{"name": "James Carter", "relationship": "spouse", "share_pct": 100}],
     "riders": ["Critical illness rider ($50,000)", "Waiver of premium"],
     "conversion_deadline": "2031-03-01"
   },
@@ -25,7 +25,7 @@
     "coverage_amount": null,
     "currency": "CAD",
     "premium": {"amount": 148.75, "frequency": "monthly", "next_due": "2026-11-01", "payment_method": "Credit card ••••0093"},
-    "covered_members": ["Priya Sharma", "Arjun Sharma", "Meera Sharma (dependent)"],
+    "covered_members": ["Emily Carter", "James Carter", "Lucy Carter (dependent)"],
     "benefits": {
       "dental": {"coverage_pct": 80, "annual_max": 1500, "used_this_year": 640},
       "vision": {"coverage_pct": 100, "annual_max": 300, "used_this_year": 0},
@@ -44,7 +44,7 @@
     "coverage_amount": 400000,
     "currency": "CAD",
     "premium": {"amount": 310.00, "frequency": "monthly", "next_due": "2026-11-15", "payment_method": "Pre-authorized debit ••••7710"},
-    "beneficiaries": [{"name": "Julie Tremblay", "relationship": "spouse", "share_pct": 60}, {"name": "Léa Tremblay", "relationship": "child", "share_pct": 40}],
+    "beneficiaries": [{"name": "Julie Wright", "relationship": "spouse", "share_pct": 60}, {"name": "Léa Wright", "relationship": "child", "share_pct": 40}],
     "cash_value": 18420.55,
     "dividend_option": "Paid-up additions"
   },
@@ -75,7 +75,7 @@
     "currency": "CAD",
     "premium": {"amount": 41.15, "frequency": "monthly", "next_due": "2026-11-10", "payment_method": "Pre-authorized debit ••••3356"},
     "covered_conditions": 26,
-    "beneficiaries": [{"name": "Tunde Bello", "relationship": "sibling", "share_pct": 100}]
+    "beneficiaries": [{"name": "David Mitchell", "relationship": "sibling", "share_pct": 100}]
   },
   {
     "policy_number": "ACC-2020-445210",
@@ -94,9 +94,9 @@
       "payment_method": "Credit card ••••0093"
     },
     "covered_members": [
-      "Priya Sharma",
-      "Arjun Sharma",
-      "Meera Sharma (dependent)"
+      "Emily Carter",
+      "James Carter",
+      "Lucy Carter (dependent)"
     ],
     "claim_window_days": 90,
     "benefits": {
@@ -142,7 +142,7 @@
       "payment_method": "Pre-authorized debit ••••3356"
     },
     "covered_members": [
-      "Aisha Bello"
+      "Sarah Mitchell"
     ],
     "claim_window_days": 90,
     "benefits": {

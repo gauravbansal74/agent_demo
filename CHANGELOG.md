@@ -4,7 +4,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+- Demo customers and their family members now have English names (for example Emily, James and Lucy Carter, Thomas Wright, Sarah and David Mitchell) in the sample data, tests and docs.
+
 ### Added
+- "Behind the scenes" panel (header button) showing the technical flow of every message live: a map of the browser, backend, AI model and MCP servers that lights up as each works, and a timeline of steps (message received, each AI request with tool calls and tokens, each MCP call with arguments and result, confirmations) with timings and expandable details. Steps are streamed as `trace` events with the chat (`src/trace.js`). Works with Copilot and the Claude API. Turn off with `SHOW_FLOW=false`.
 - Photo and document upload in the chat: a paperclip button next to the message box, thumbnails before sending, and the files shown in the customer's message. JPG, PNG, WebP and PDF, up to 8 MB each and 20 per chat, checked by their contents (`POST /api/upload`).
 - Mock claims server tool `attach_claim_document`: attaches a file to a draft (before submission) or a filed claim, matched to a required document. Drafts and claims now list documents received and documents still outstanding; `submit_claim` files the attached documents with the claim.
 - File tools in the MCP hub: a tool with a `content_base64` argument gets an `upload_id` argument instead, and the backend fills in the file contents, name and type from the customer's upload. File contents never pass through the LLM, and only files from the same chat can be sent. Argument names can be changed with `uploadArguments` in the MCP config.
@@ -14,7 +18,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - `DEMO_CUSTOMERS` setting for the sign-in list file.
 - Tests for uploads and document attachments.
 - Accident claims can be filed in the chat.
-  - New personal accident policies in the sample data for Priya Sharma (`ACC-2020-445210`) and Aisha Bello (`ACC-2023-118734`): medical expenses, hospital cash, fracture and accidental death benefits, with a 90-day claim window.
+  - New personal accident policies in the sample data for Emily Carter (`ACC-2020-445210`) and Sarah Mitchell (`ACC-2023-118734`): medical expenses, hospital cash, fracture and accidental death benefits, with a 90-day claim window.
   - Mock claims server tools `create_accident_claim` (draft with checks and estimated payout), `get_claim_draft` and `submit_claim`. Filed claims appear in `list_claims`, `get_claim_status` and `get_claims_summary`.
   - Claim submission guide entry for `accident`.
   - The assistant's instructions cover collecting the claim details step by step and never claiming a claim was filed before it was.
@@ -30,6 +34,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
 
 ### Changed
+- The confirmation endpoint now runs the confirmed tool inside the streamed turn, so it shows in the flow panel; a stale card still gets a 409 before anything runs.
 - The demo sign-in list reads the customer id from the field named by `customerIdArgument` (e.g. `clientId`), falling back to `customer_id` and then `clientId`, so it works with either config. Customers without an id are left out instead of showing "undefined". The mock servers accept sample data that uses `clientId` too.
 - Customer messages can no longer contain the `<system-note>`, `<context>` and `<attachments>` tags the app uses for its own notes to the assistant.
 - One reply at a time per conversation: a second message while a reply is streaming gets a "please wait" response.

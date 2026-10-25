@@ -1,6 +1,7 @@
 // The customer chat agent: Claude plus the tools from the connected MCP servers.
 import Anthropic from "@anthropic-ai/sdk";
 import { holdForConfirmation } from "./confirmations.js";
+import { noTrace } from "./trace.js";
 
 // "copilot" (default) uses the GitHub Copilot SDK (see copilotAgent.js);
 // "anthropic" calls the Claude API directly with this file's agent.
@@ -52,6 +53,8 @@ export class Conversation {
     this.pending = null;
     /** Files the customer uploaded in this chat: upload id -> { name, type, size, data }. */
     this.uploads = new Map();
+    /** Records the current turn's steps for the "Behind the scenes" panel (set by the server). */
+    this.trace = noTrace;
   }
 }
 
@@ -59,6 +62,11 @@ export class InsuranceAgent {
   constructor(hub, client = new Anthropic()) {
     this.hub = hub;
     this.client = client;
+  }
+
+  /** For the "Behind the scenes" panel. */
+  describe() {
+    return { provider: "Claude API", model: MODEL };
   }
 
   #params(convo) {
@@ -93,13 +101,25 @@ export class InsuranceAgent {
     convo.messages.push({ role: "user", content });
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const stream = this.client.beta.messages.stream(this.#params(convo));
+      const params = this.#params(convo);
+      const step = convo.trace.start("llm", `Claude request ${round + 1}`, {
+        model: params.model,
+        messages_sent: params.messages.length,
+        tools_offered: params.tools.map((t) => t.name),
+        effort: EFFORT,
+      });
+      const stream = this.client.beta.messages.stream(params);
       for await (const event of stream) {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
           yield { type: "text", text: event.delta.text };
         }
       }
       const message = await stream.finalMessage();
+      step.end({
+        stop_reason: message.stop_reason,
+        tool_calls: message.content.filter((b) => b.type === "tool_use").map((b) => ({ name: b.name, input: b.input })),
+        tokens: { input: message.usage?.input_tokens, output: message.usage?.output_tokens, cached: message.usage?.cache_read_input_tokens },
+      });
 
       // Keep the full content (thinking, fallback and tool_use blocks) so the next request replays it unchanged.
       convo.messages.push({ role: "assistant", content: message.content });
@@ -118,7 +138,7 @@ export class InsuranceAgent {
         // Tools that change something wait for the customer's confirmation instead of running now.
         const held = await holdForConfirmation(this.hub, convo, block.name, block.input);
         if (held?.event) yield held.event;
-        const { text, isError } = held?.result ?? (await this.hub.call(block.name, block.input, convo.customerId, convo.uploads));
+        const { text, isError } = held?.result ?? (await this.hub.call(block.name, block.input, convo.customerId, convo.uploads, convo.trace));
         console.log(`tool ${block.name}(${JSON.stringify(block.input)}) error=${isError}`);
         results.push({ type: "tool_result", tool_use_id: block.id, content: text, is_error: isError });
       }

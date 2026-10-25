@@ -85,7 +85,7 @@
     "amount_paid": null,
     "expected_decision_by": "2026-11-25",
     "outstanding_items": ["Attending physician statement", "Pathology report"],
-    "assigned_case_manager": "Rachel Lin, ext. 4417",
+    "assigned_case_manager": "Rachel Moore, ext. 4417",
     "history": [
       {"date": "2026-10-21", "event": "Claim submitted online"},
       {"date": "2026-10-22", "event": "Case manager assigned"}
