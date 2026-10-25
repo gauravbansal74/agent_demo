@@ -7,7 +7,7 @@ import { MCPHub, loadConfig } from "../src/mcpHub.js";
 
 let hub;
 before(async () => {
-  hub = await new MCPHub(loadConfig("mcp-servers.json")).connect();
+  hub = await new MCPHub(loadConfig("mcp-servers.mock.json")).connect();
 });
 after(() => hub.close());
 

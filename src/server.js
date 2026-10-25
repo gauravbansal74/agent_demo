@@ -23,7 +23,23 @@ function brandAsset(name) {
 
 const hasToolUse = (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use");
 // Customers can't pose as the app: tags the app uses for its own notes are defused in their messages.
-const defuseTags = (text) => text.replace(/<(\/?)\s*(system-note|context)\b/gi, "‹$1$2");
+const defuseTags = (text) => text.replace(/<(\/?)\s*(system-note|context|attachments)\b/gi, "‹$1$2");
+
+// Customer uploads (claim documents). The type is taken from the file's first bytes, not from
+// what the browser claims, and files stay in the chat session until it ends.
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_UPLOADS_PER_CHAT = 20;
+const FILE_SIGNATURES = [
+  { type: "image/jpeg", test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { type: "image/png", test: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+  { type: "image/webp", test: (b) => b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP" },
+  { type: "application/pdf", test: (b) => b.toString("latin1", 0, 5) === "%PDF-" },
+];
+const sniffType = (buf) => FILE_SIGNATURES.find((s) => s.test(buf))?.type ?? null;
+const kb = (bytes) => `${Math.max(1, Math.round(bytes / 1024))} KB`;
+// Tells the assistant which files came with a message; the contents stay on the server.
+const attachmentsNote = (files) =>
+  `<attachments>\n${files.map((f) => `- upload_id: ${f.id} | ${f.name} | ${f.type} | ${kb(f.size)}`).join("\n")}\n</attachments>\n\n`;
 
 /** Streams one assistant turn to the browser as Server-Sent Events. */
 async function streamTurn(res, convo, events, first) {
@@ -100,10 +116,38 @@ export function createApp(agent) {
     const convo = sessions.get(req.body?.session_id);
     if (!convo) return res.status(401).json({ error: "Session expired. Please sign in again." });
     const message = String(req.body?.message ?? "").trim();
-    if (!message || message.length > 4000) return res.status(422).json({ error: "message must be 1-4000 characters" });
+    const ids = Array.isArray(req.body?.attachments) ? req.body.attachments.map(String) : [];
+    const files = ids.map((id) => convo.uploads.get(id));
+    if (files.some((f) => !f)) return res.status(422).json({ error: "One of the attached files was not found. Please upload it again." });
+    if ((!message && !files.length) || message.length > 4000) {
+      return res.status(422).json({ error: "message must be 1-4000 characters" });
+    }
 
     if (convo.busy) return res.status(429).json(BUSY);
-    await streamTurn(res, convo, agent.reply(convo, defuseTags(message)));
+    const text = (files.length ? attachmentsNote(files) : "") + (defuseTags(message) || "(The customer sent the attached files without a message.)");
+    await streamTurn(res, convo, agent.reply(convo, text));
+  });
+
+  // A file the customer attaches in the chat (e.g. a receipt photo). Raw body; name in X-File-Name.
+  app.post("/api/upload", express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }), (req, res) => {
+    const convo = sessions.get(req.get("X-Session-Id"));
+    if (!convo) return res.status(401).json({ error: "Session expired. Please sign in again." });
+    const data = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (!data.length) return res.status(422).json({ error: "The file is empty." });
+    const type = sniffType(data);
+    if (!type) return res.status(415).json({ error: "Please upload a photo (JPG, PNG or WebP) or a PDF." });
+    if (convo.uploads.size >= MAX_UPLOADS_PER_CHAT) {
+      return res.status(429).json({ error: `You can upload up to ${MAX_UPLOADS_PER_CHAT} files in one chat.` });
+    }
+    let name = "document";
+    try {
+      name = decodeURIComponent(req.get("X-File-Name") ?? "document");
+    } catch {}
+    // Keep names short and free of path or control characters.
+    name = name.replace(/[\\/\x00-\x1f<>]/g, "_").slice(-120) || "document";
+    const upload = { id: `UPL-${randomBytes(4).toString("hex")}`, name, type, size: data.length, data };
+    convo.uploads.set(upload.id, upload);
+    res.json({ upload_id: upload.id, name, type, size: upload.size });
   });
 
   // The customer answered a confirmation card (e.g. "Submit this claim?"). Only now is the tool run.
@@ -131,6 +175,10 @@ export function createApp(agent) {
   });
 
   app.use("/static", express.static(path.join(ROOT, "public")));
+  app.use((err, req, res, next) => {
+    if (err.type === "entity.too.large") return res.status(413).json({ error: "That file is too large. The limit is 8 MB." });
+    next(err);
+  });
   app.get("/", (req, res) => res.sendFile(path.join(ROOT, "public", "index.html")));
   return app;
 }

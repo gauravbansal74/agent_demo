@@ -8,7 +8,7 @@ import { FakeClient, message } from "./fakes.js";
 
 let hub, server, base, agent;
 before(async () => {
-  const config = loadConfig("mcp-servers.json");
+  const config = loadConfig("mcp-servers.mock.json");
   // Pin "today" so the 90-day claim window checks don't drift.
   config.servers.claims.env = { MOCK_TODAY: "2026-10-24" };
   hub = await new MCPHub(config).connect();

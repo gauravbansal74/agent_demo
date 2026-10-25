@@ -1,15 +1,18 @@
 {
-  "customerIdArgument": "clientId",
+  "customerIdArgument": "customer_id",
   "servers": {
     "policies": {
       "transport": "streamable_http",
-      "url": "${POLICY_MCP_URL}"
+      "url": "${POLICY_MCP_URL}",
+      "headers": { "Authorization": "Bearer ${POLICY_MCP_TOKEN}" }
     },
     "claims": {
-      "transport": "streamable_http",
-      "url": "${CLAIMS_MCP_URL}"
+      "transport": "sse",
+      "url": "${CLAIMS_MCP_URL}",
+      "headers": { "x-api-key": "${CLAIMS_MCP_API_KEY}" }
     }
   },
+  "uploadArguments": { "content": "content_base64", "fileName": "file_name", "mimeType": "mime_type" },
   "confirm": {
     "claims__submit_claim": { "title": "Submit this claim?", "confirmLabel": "Submit claim", "preview": "claims__get_claim_draft" }
   }

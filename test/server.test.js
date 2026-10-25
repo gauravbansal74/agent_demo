@@ -7,7 +7,7 @@ import { FakeClient, message } from "./fakes.js";
 
 let hub, server, base, agent;
 before(async () => {
-  hub = await new MCPHub(loadConfig("mcp-servers.json")).connect();
+  hub = await new MCPHub(loadConfig("mcp-servers.mock.json")).connect();
   agent = new InsuranceAgent(hub, new FakeClient([]));
   server = createApp(agent).listen(0);
   base = `http://localhost:${server.address().port}`;

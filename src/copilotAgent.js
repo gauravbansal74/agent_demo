@@ -74,7 +74,7 @@ export class CopilotAgent {
           // Tools that change something wait for the customer's confirmation instead of running now.
           const held = await holdForConfirmation(this.hub, convo, t.name, args);
           if (held?.event) convo.emit?.(held.event);
-          const { text, isError } = held?.result ?? (await this.hub.call(t.name, args, convo.customerId));
+          const { text, isError } = held?.result ?? (await this.hub.call(t.name, args, convo.customerId, convo.uploads));
           return { textResultForLlm: text, resultType: isError ? "failure" : "success" };
         },
       }),

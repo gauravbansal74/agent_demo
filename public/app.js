@@ -163,17 +163,97 @@ async function streamReply(url, body, { onConfirmed } = {}) {
 
 async function send(text) {
   text = text.trim();
-  if (!text || busy) return;
+  // Wait for uploads in progress; files that failed are dropped.
+  if (busy || pending.some((f) => !f.id && !f.error)) return;
+  const files = pending.splice(0).filter((f) => f.id);
+  if (!text && !files.length) return;
+  renderTray();
   setBusy(true);
   $("input").value = "";
   $("input").style.height = "auto";
-  addMessage("user").textContent = text;
+  const bubble = addMessage("user");
+  if (files.length) bubble.append(fileStrip(files));
+  if (text) bubble.append(el("div", "", text));
   try {
-    await streamReply("/api/chat", { session_id: sessionId, message: text });
+    await streamReply("/api/chat", { session_id: sessionId, message: text, attachments: files.map((f) => f.id) });
   } finally {
     setBusy(false);
   }
 }
+
+// ---- File attachments (claim documents) ----
+// Files upload as soon as they're picked, then go with the next message as upload ids.
+const pending = []; // { file, url, id?, error? }
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+$("attach").addEventListener("click", () => $("file-input").click());
+$("file-input").addEventListener("change", (e) => {
+  for (const file of e.target.files) upload(file);
+  e.target.value = "";
+});
+
+async function upload(file) {
+  const item = { file, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null };
+  pending.push(item);
+  if (file.size > MAX_FILE_BYTES) item.error = "Over 8 MB";
+  renderTray();
+  if (item.error) return;
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream", "X-Session-Id": sessionId, "X-File-Name": encodeURIComponent(file.name) },
+      body: file,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Upload failed");
+    item.id = body.upload_id;
+  } catch (err) {
+    item.error = err.message;
+  }
+  renderTray();
+}
+
+function fileThumb(item, onRemove) {
+  const tile = el("div", `file${item.error ? " failed" : ""}${item.id || item.error ? "" : " uploading"}`);
+  tile.title = item.error ? `${item.file.name}: ${item.error}` : item.file.name;
+  if (item.error) tile.append(el("span", "file-icon", "!"));
+  else if (item.url) {
+    const img = el("img");
+    img.src = item.url;
+    img.alt = "";
+    tile.append(img);
+  } else tile.append(el("span", "file-icon", "PDF"));
+  const label = el("span", "file-name", item.file.name);
+  if (item.error) label.append(el("small", "", item.error));
+  tile.append(label);
+  if (onRemove) {
+    const x = el("button", "file-remove", "×");
+    x.type = "button";
+    x.setAttribute("aria-label", `Remove ${item.file.name}`);
+    x.onclick = onRemove;
+    tile.append(x);
+  }
+  return tile;
+}
+
+function renderTray() {
+  const tray = $("tray");
+  tray.replaceChildren(
+    ...pending.map((item, i) =>
+      fileThumb(item, () => {
+        pending.splice(i, 1);
+        renderTray();
+      }),
+    ),
+  );
+  tray.hidden = !pending.length;
+}
+
+const fileStrip = (files) => {
+  const strip = el("div", "file-strip");
+  strip.append(...files.map((f) => fileThumb(f)));
+  return strip;
+};
 
 const money = (n, currency = "CAD") =>
   Number(n).toLocaleString("en-CA", { style: "currency", currency, currencyDisplay: "narrowSymbol" });
@@ -225,11 +305,16 @@ function confirmCard(event) {
   }
   if (p.disclaimer) card.append(el("p", "confirm-note", p.disclaimer));
   if (p.required_documents?.length) {
+    const attached = p.attached_documents ?? [];
+    const missing = p.outstanding_documents ?? p.required_documents;
     const docs = el("details", "confirm-docs");
-    docs.append(el("summary", "", `Documents you'll need to upload (${p.required_documents.length})`));
+    docs.open = attached.length > 0;
+    docs.append(el("summary", "", `Documents: ${attached.length} attached, ${missing.length} still needed`));
     const ul = el("ul");
-    for (const d of p.required_documents) ul.append(el("li", "", d));
+    for (const a of attached) ul.append(el("li", "doc-ok", `${a.document_type} (${a.file_name})`));
+    for (const d of missing) ul.append(el("li", "doc-missing", d));
     docs.append(ul);
+    if (missing.length) docs.append(el("p", "confirm-note", "You can send these later, here in the chat or in the app."));
     card.append(docs);
   }
 

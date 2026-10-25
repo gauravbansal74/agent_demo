@@ -23,7 +23,7 @@ npm start                       # same as: node --env-file=.env src/server.js
 
 Open http://localhost:3000, pick a demo customer and start chatting.
 
-Out of the box `mcp-servers.json` points at two small **mock** MCP servers in `mock-mcp-servers/` (sample data in `data/`), so you can try the app before wiring in your real servers.
+Out of the box `mcp-servers.json` points at two small **mock** MCP servers in `mock-mcp-servers/` (sample data in `data/`), so you can try the app before wiring in your real servers. `mcp-servers.mock.json` is the same mock setup kept separately: the tests use it, and you can switch back to the mocks any time with `MCP_CONFIG=mcp-servers.mock.json npm start`.
 
 ## Choose an LLM
 
@@ -91,6 +91,22 @@ The confirmation step is enforced by the backend, not by the LLM's good behaviou
 
 `preview` is an optional tool called with the same arguments to fill the card. It works best when it returns `title`, `summary` (a list of `{label, value}`), `benefits`, `estimated_total_payout`, `required_documents` and `disclaimer`, like the mock's `get_claim_draft`.
 
+## Photos and documents
+
+Customers can attach photos (JPG, PNG, WebP) or PDFs with the paperclip button next to the message box, for example an X-ray report or hospital receipts. Files upload as soon as they're picked, show as thumbnails above the message box, and go with the next message.
+
+- The assistant is told which files came with the message (name, type, size and an `upload_id`), never their contents. It attaches each one with `attach_claim_document`, to a draft before submission or to a filed claim afterwards, saying which required document it is.
+- The confirmation card lists which documents are attached and which are still needed. After filing, the claim's outstanding documents shrink as files arrive.
+- The backend checks each file by its contents (not its name), up to 8 MB and 20 files per chat, and keeps it in the chat session only.
+
+**How the file reaches your MCP server.** Any tool whose input schema has a `content_base64` argument is treated as a file tool. The backend hides `content_base64`, `file_name` and `mime_type` from the LLM, shows an `upload_id` argument instead, and fills the three in from the customer's upload when the tool runs. The LLM can only send files uploaded in the same chat. If your server uses other argument names, map them in the MCP config:
+
+```json
+"uploadArguments": { "content": "fileData", "fileName": "fileName", "mimeType": "contentType" }
+```
+
+The mock server checks the file type again, records a SHA-256 hash, and keeps only the file details in memory, not the file itself. A real server should store the file, virus-scan it, and enforce its own size and type limits.
+
 In the mock server, filed claims and drafts live in memory and disappear when the app restarts. Other claim types (health, dental, life and so on) are still pointed to the portal or app; accidental death claims are referred to customer service.
 
 ## Configuration
@@ -127,6 +143,7 @@ src/
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
   brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing
+mcp-servers.mock.json  Config for the mock servers (used by the tests)
 data/               Sample customers, policies (incl. personal accident) and claims for the mocks
 test/               Offline tests (the LLM is faked; mock MCP servers run for real)
 CHANGELOG.md        Record of changes
@@ -145,6 +162,7 @@ The tests need no API keys: Claude and Copilot are replaced by scripted fakes, w
 - Replace the demo sign-in (`POST /api/session`) with your real customer authentication and derive `customer_id` from the verified identity.
 - Move chat sessions from memory to Redis or a database if you run more than one instance.
 - Add rate limiting and audit logging of tool calls to suit your compliance requirements. Log each confirmation (who, when, what was attested) as part of the claim record.
+- Scan uploaded files for malware and store them in your document system; the demo keeps them in memory for the chat only.
 - Have your claims server enforce its own rules (ownership, claim window, limits, duplicates) as the mock does; don't rely on the LLM or the UI for them.
 
 ## Contributing

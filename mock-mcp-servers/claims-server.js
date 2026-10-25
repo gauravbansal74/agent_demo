@@ -1,7 +1,7 @@
 // Mock MCP server exposing a customer's insurance claims (stdio).
 // As with the policy server, customer_id is injected by the chat backend.
 // Accident claims can be drafted and submitted; new claims live in memory until the server restarts.
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -52,9 +52,12 @@ server.registerTool(
   },
   async ({ customer_id, claim_id }) =>
     json(
-      claims(customer_id).find((c) => c.claim_id.toLowerCase() === claim_id.trim().toLowerCase()) ?? {
-        error: `Claim ${claim_id} was not found on this customer's account`,
-      },
+      // Internal file records (hashes) stay on the server; documents_received is the customer-facing list.
+      (({ attachments, ...c }) => c)(
+        claims(customer_id).find((c) => c.claim_id.toLowerCase() === claim_id.trim().toLowerCase()) ?? {
+          error: `Claim ${claim_id} was not found on this customer's account`,
+        },
+      ),
     ),
 );
 
@@ -212,6 +215,8 @@ function draftView(draft) {
     estimated_total_payout: draft.lines.reduce((sum, l) => sum + l.estimated_payout, 0),
     currency: "CAD",
     required_documents: draft.documents,
+    attached_documents: draft.attachments.map(attachmentView),
+    outstanding_documents: outstanding(draft.documents, draft.attachments),
     disclaimer: "The payout is an estimate. The final amount is decided after the claim is assessed.",
   };
 }
@@ -261,9 +266,14 @@ server.registerTool(
       member,
       lines,
       documents,
+      attachments: [],
     };
     drafts.set(draft.draft_id, draft);
-    return json({ ...draftView(draft), next_step: "Show the customer this summary, then call submit_claim with the draft_id. The customer confirms in the app." });
+    return json({
+      ...draftView(draft),
+      next_step:
+        "Show the customer this summary and invite them to attach photos or PDFs of the required documents now (paperclip button) with attach_claim_document, or later. Then call submit_claim with the draft_id; the customer confirms in the app.",
+    });
   },
 );
 
@@ -276,6 +286,92 @@ server.registerTool(
   async ({ customer_id, draft_id }) => {
     const draft = findDraft(customer_id, draft_id);
     return draft ? json(draftView(draft)) : fail(`Draft ${draft_id} was not found on this customer's account`);
+  },
+);
+
+// ---- Claim documents ----
+
+const DOCUMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
+const OTHER_DOCUMENT = "Other supporting document";
+const attachmentView = ({ document_type, file_name, mime_type, size_bytes, received_date }) => ({
+  document_type,
+  file_name,
+  mime_type,
+  size_bytes,
+  received_date,
+});
+const outstanding = (required, attachments) => required.filter((d) => !attachments.some((a) => a.document_type === d));
+// Matches the model's wording to one of the required documents, e.g. "x-ray report" -> "X-ray report confirming the fracture".
+function matchDocument(required, documentType) {
+  const want = documentType.trim().toLowerCase();
+  return required.find((d) => d.toLowerCase() === want) ?? required.find((d) => d.toLowerCase().includes(want) || want.includes(d.toLowerCase())) ?? null;
+}
+// The file's first bytes must match its type; a real server would also virus-scan and store it.
+const SIGNATURES = {
+  "image/jpeg": (b) => b[0] === 0xff && b[1] === 0xd8,
+  "image/png": (b) => b.toString("latin1", 1, 4) === "PNG",
+  "image/webp": (b) => b.toString("latin1", 8, 12) === "WEBP",
+  "application/pdf": (b) => b.toString("latin1", 0, 5) === "%PDF-",
+};
+
+server.registerTool(
+  "attach_claim_document",
+  {
+    description:
+      "Attach a supporting document (photo or PDF the customer uploaded) to a draft claim (DRF-...) or a filed claim (CLM-...). Use document_type to say which required document it is, using the exact wording from required_documents or outstanding_items. Returns the documents received and those still outstanding.",
+    inputSchema: {
+      customer_id: customerId,
+      claim_reference: z.string().describe("Draft id (DRF-...) or claim number (CLM-...)"),
+      document_type: z.string().min(2).max(200).describe("Which required document this file is"),
+      file_name: z.string().max(200),
+      mime_type: z.string(),
+      content_base64: z.string().describe("The file contents, base64-encoded"),
+    },
+  },
+  async ({ customer_id, claim_reference, document_type, file_name, mime_type, content_base64 }) => {
+    const ref = claim_reference.trim().toUpperCase();
+    const draft = ref.startsWith("DRF-") ? findDraft(customer_id, ref) : null;
+    const claim = draft ? null : claims(customer_id).find((c) => c.claim_id === ref);
+    if (!draft && !claim) return fail(`${claim_reference} was not found on this customer's account`);
+    if (claim && !["submitted", "in_review"].includes(claim.status)) {
+      return fail(`Claim ${claim.claim_id} is ${claim.status}, so documents can no longer be added here`);
+    }
+    if (claim && !filed.includes(claim)) {
+      // Sample-data claims are read-only in this mock.
+      return fail(`Documents for ${claim.claim_id} can be uploaded in the app under Claims > ${claim.claim_id} > Upload documents`);
+    }
+    if (!DOCUMENT_TYPES.includes(mime_type)) return fail("Only JPG, PNG, WebP or PDF files can be attached");
+    const bytes = Buffer.from(content_base64, "base64");
+    if (!bytes.length || bytes.length > MAX_DOCUMENT_BYTES) return fail("The file must be between 1 byte and 8 MB");
+    if (!SIGNATURES[mime_type](bytes)) return fail(`The file doesn't look like a valid ${mime_type} file`);
+
+    const target = draft ?? claim;
+    const required = draft ? draft.documents : claim.required_documents;
+    const attachment = {
+      document_type: matchDocument(required, document_type) ?? OTHER_DOCUMENT,
+      file_name,
+      mime_type,
+      size_bytes: bytes.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      received_date: today(),
+    };
+    if (target.attachments.some((a) => a.sha256 === attachment.sha256)) {
+      return fail(`${file_name} is already attached to ${ref}`);
+    }
+    target.attachments.push(attachment);
+    if (claim) {
+      claim.documents_received = claim.attachments.map(attachmentView);
+      claim.outstanding_items = outstanding(claim.required_documents, claim.attachments);
+      claim.history.push({ date: attachment.received_date, event: `Document received: ${attachment.document_type}` });
+    }
+    return json({
+      attached_to: ref,
+      attached: attachmentView(attachment),
+      note: attachment.document_type === OTHER_DOCUMENT ? "Saved as an other supporting document; it didn't match a required document" : undefined,
+      documents_received: target.attachments.map(attachmentView),
+      outstanding_documents: outstanding(required, target.attachments),
+    });
   },
 );
 
@@ -310,8 +406,14 @@ server.registerTool(
       amount_approved: null,
       amount_paid: null,
       expected_decision_by: new Date(Date.parse(t) + 14 * DAY_MS).toISOString().slice(0, 10),
-      outstanding_items: draft.documents,
-      history: [{ date: t, event: "Claim submitted via chat assistant" }],
+      documents_received: draft.attachments.map(attachmentView),
+      attachments: draft.attachments,
+      required_documents: draft.documents,
+      outstanding_items: outstanding(draft.documents, draft.attachments),
+      history: [
+        { date: t, event: "Claim submitted via chat assistant" },
+        ...(draft.attachments.length ? [{ date: t, event: `${draft.attachments.length} document(s) received with the claim` }] : []),
+      ],
     };
     filed.push(claim);
     Object.assign(draft, { status: "submitted", claim_id: claim.claim_id });
@@ -321,9 +423,12 @@ server.registerTool(
       submitted_date: t,
       estimated_payout: claim.estimated_payout,
       currency: "CAD",
+      documents_received: claim.documents_received,
       outstanding_items: claim.outstanding_items,
       next_steps: [
-        `Upload the documents in the app under Claims > ${claim.claim_id} > Upload documents within 30 days`,
+        claim.outstanding_items.length
+          ? `Send the remaining documents within 30 days: attach them here in the chat, or in the app under Claims > ${claim.claim_id} > Upload documents`
+          : "All required documents were received with the claim",
         "We assess the claim within 10 business days of receiving all documents",
         "Payment goes to the bank account on file by direct deposit",
       ],

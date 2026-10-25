@@ -29,7 +29,7 @@ export async function holdForConfirmation(hub, convo, name, args) {
   if (!rule) return null;
   let preview = null;
   if (rule.preview) {
-    const { text, isError } = await hub.call(rule.preview, args, convo.customerId);
+    const { text, isError } = await hub.call(rule.preview, args, convo.customerId, convo.uploads);
     preview = parse(text);
     // Nothing to confirm (e.g. unknown draft): let the LLM see the problem and fix it.
     if (isError || preview?.error) return { event: null, result: { text, isError: true } };
@@ -64,7 +64,7 @@ export async function resolveConfirmation(hub, convo, id, approved) {
       note: "The customer pressed Cancel on the confirmation card, so nothing was submitted. Acknowledge this briefly and ask whether they'd like to change any details or leave it for now.",
     };
   }
-  const { text, isError } = await hub.call(pending.name, pending.args, convo.customerId);
+  const { text, isError } = await hub.call(pending.name, pending.args, convo.customerId, convo.uploads);
   console.log(`confirmed tool ${pending.name}(${JSON.stringify(pending.args)}) error=${isError}`);
   const result = parse(text);
   const failed = isError || Boolean(result?.error);

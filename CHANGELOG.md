@@ -4,10 +4,14 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
-### Removed
-- Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
-
 ### Added
+- Photo and document upload in the chat: a paperclip button next to the message box, thumbnails before sending, and the files shown in the customer's message. JPG, PNG, WebP and PDF, up to 8 MB each and 20 per chat, checked by their contents (`POST /api/upload`).
+- Mock claims server tool `attach_claim_document`: attaches a file to a draft (before submission) or a filed claim, matched to a required document. Drafts and claims now list documents received and documents still outstanding; `submit_claim` files the attached documents with the claim.
+- File tools in the MCP hub: a tool with a `content_base64` argument gets an `upload_id` argument instead, and the backend fills in the file contents, name and type from the customer's upload. File contents never pass through the LLM, and only files from the same chat can be sent. Argument names can be changed with `uploadArguments` in the MCP config.
+- The confirmation card shows which documents are attached and which are still needed.
+- The assistant offers to take documents during an accident claim and attaches them.
+- `mcp-servers.mock.json`, a separate config for the mock servers, so the tests no longer depend on `mcp-servers.json`.
+- Tests for uploads and document attachments.
 - Accident claims can be filed in the chat.
   - New personal accident policies in the sample data for Priya Sharma (`ACC-2020-445210`) and Aisha Bello (`ACC-2023-118734`): medical expenses, hospital cash, fracture and accidental death benefits, with a 90-day claim window.
   - Mock claims server tools `create_accident_claim` (draft with checks and estimated payout), `get_claim_draft` and `submit_claim`. Filed claims appear in `list_claims`, `get_claim_status` and `get_claims_summary`.
@@ -21,8 +25,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Brand tagline "Making life brighter" on the sign-in page (`BRAND_TAGLINE`).
 - `CHANGELOG.md` (this file), and a Contributing note in the README to keep it updated.
 
+### Removed
+- Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
+
 ### Changed
-- Customer messages can no longer contain the `<system-note>` and `<context>` tags the app uses for its own notes to the assistant.
+- Customer messages can no longer contain the `<system-note>`, `<context>` and `<attachments>` tags the app uses for its own notes to the assistant.
 - One reply at a time per conversation: a second message while a reply is streaming gets a "please wait" response.
 - Branding updated to the new one-word **Sunlife** brand (announced October 2026): `BRAND_NAME` now defaults to `Sunlife`.
 - The header is now white with the yellow underline, so the official logo sits on its intended background.

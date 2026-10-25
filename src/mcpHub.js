@@ -15,6 +15,12 @@
 //
 // Tools that change something can be listed under "confirm" so they only run after the
 // customer presses a confirmation button (see confirmations.js).
+//
+// File uploads: if a tool's schema has the argument named by uploadArguments.content (default
+// "content_base64"), the file arguments (content, file name, MIME type) are replaced by a single
+// upload_id in the schema Claude sees. On each call the backend fills them in from a file the
+// customer uploaded in this chat, so file contents never pass through the LLM and it can only
+// use this customer's own uploads.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +75,7 @@ export class MCPHub {
     this.customerArg = config.customerIdArgument ?? "customer_id";
     this.tools = new Map(); // claude tool name -> { server, client, mcpName, claudeTool, scoped }
     this.confirmations = config.confirm ?? {}; // tool name -> { title, preview }
+    this.uploadArgs = { content: "content_base64", fileName: "file_name", mimeType: "mime_type", ...config.uploadArguments };
     this.clients = [];
   }
 
@@ -107,6 +114,16 @@ export class MCPHub {
       delete schema.properties[this.customerArg];
       schema.required = (schema.required ?? []).filter((r) => r !== this.customerArg);
     }
+    const takesUpload = this.uploadArgs.content in schema.properties;
+    if (takesUpload) {
+      const fileArgs = Object.values(this.uploadArgs);
+      for (const arg of fileArgs) delete schema.properties[arg];
+      schema.properties.upload_id = {
+        type: "string",
+        description: "Id of a file the customer uploaded in this chat (listed in the <attachments> note of their message)",
+      };
+      schema.required = [...(schema.required ?? []).filter((r) => !fileArgs.includes(r)), "upload_id"];
+    }
     delete schema.$schema;
     const claudeName = `${server}__${tool.name}`.replace(UNSAFE_NAME, "_").slice(0, 64);
     this.tools.set(claudeName, {
@@ -114,6 +131,7 @@ export class MCPHub {
       client,
       mcpName: tool.name,
       scoped,
+      takesUpload,
       claudeTool: { name: claudeName, description: tool.description ?? tool.title ?? tool.name, input_schema: schema },
     });
   }
@@ -123,13 +141,25 @@ export class MCPHub {
     return [...this.tools.keys()].sort().map((name) => this.tools.get(name).claudeTool);
   }
 
-  /** Runs a tool. Resolves to { text, isError }. */
-  async call(claudeName, args, customerId) {
+  /**
+   * Runs a tool. Resolves to { text, isError }.
+   * `uploads` is the chat's Map of upload id -> { name, type, data (Buffer) }.
+   */
+  async call(claudeName, args, customerId, uploads = new Map()) {
     const tool = this.tools.get(claudeName);
     if (!tool) return { text: `Unknown tool ${claudeName}`, isError: true };
     const callArgs = { ...(args ?? {}) };
     // Always the signed-in customer, never the model's choice.
     if (tool.scoped) callArgs[this.customerArg] = customerId;
+    if (tool.takesUpload) {
+      // Only files uploaded in this chat can be sent.
+      const file = uploads.get(String(callArgs.upload_id ?? ""));
+      if (!file) return { text: `No file with upload_id ${JSON.stringify(callArgs.upload_id)} was uploaded in this chat`, isError: true };
+      delete callArgs.upload_id;
+      callArgs[this.uploadArgs.content] = file.data.toString("base64");
+      callArgs[this.uploadArgs.fileName] = file.name;
+      callArgs[this.uploadArgs.mimeType] = file.type;
+    }
     try {
       const result = await tool.client.callTool({ name: tool.mcpName, arguments: callArgs });
       const text =
