@@ -123,6 +123,7 @@ In the mock server, filed claims and drafts live in memory and disappear when th
 | `BRAND_NAME` | `Sunlife` | Name shown in the UI and used by the assistant |
 | `BRAND_TAGLINE` | `Making life brighter` | Tagline shown on the sign-in page |
 | `MCP_CONFIG` | `mcp-servers.json` | MCP server config file |
+| `DEMO_CUSTOMERS` | `data/customers.json` | Customers offered on the demo sign-in page. The id is read from the field named by `customerIdArgument` (e.g. `clientId`), or `customer_id` |
 | `PORT` | `3000` | HTTP port |
 
 ## Branding
@@ -155,7 +156,7 @@ CHANGELOG.md        Record of changes
 npm test
 ```
 
-The tests need no API keys: Claude and Copilot are replaced by scripted fakes, while the mock MCP servers run for real.
+The tests need no API keys: Claude and Copilot are replaced by scripted fakes, while the mock MCP servers run for real on their own copy of the sample data in `test/fixtures/`. You can edit `data/` and `mcp-servers.json` for your demo without breaking them.
 
 ## Before production
 

@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { InsuranceAgent } from "../src/agent.js";
-import { MCPHub, loadConfig } from "../src/mcpHub.js";
+import { MCPHub } from "../src/mcpHub.js";
 import { createApp } from "../src/server.js";
-import { FakeClient, message } from "./fakes.js";
+import { FakeClient, message, mockConfig } from "./fakes.js";
 
 let hub, server, base, agent;
 before(async () => {
-  const config = loadConfig("mcp-servers.mock.json");
-  config.servers.claims.env = { MOCK_TODAY: "2026-10-24" };
-  hub = await new MCPHub(config).connect();
+  hub = await new MCPHub(mockConfig()).connect();
   agent = new InsuranceAgent(hub, new FakeClient([]));
   server = createApp(agent).listen(0);
   base = `http://localhost:${server.address().port}`;

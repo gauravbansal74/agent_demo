@@ -10,7 +10,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - File tools in the MCP hub: a tool with a `content_base64` argument gets an `upload_id` argument instead, and the backend fills in the file contents, name and type from the customer's upload. File contents never pass through the LLM, and only files from the same chat can be sent. Argument names can be changed with `uploadArguments` in the MCP config.
 - The confirmation card shows which documents are attached and which are still needed.
 - The assistant offers to take documents during an accident claim and attaches them.
-- `mcp-servers.mock.json`, a separate config for the mock servers, so the tests no longer depend on `mcp-servers.json`.
+- `mcp-servers.mock.json` and `test/fixtures/`: the tests use their own mock config and sample data, so editing `mcp-servers.json` or `data/` for a demo no longer breaks them.
+- `DEMO_CUSTOMERS` setting for the sign-in list file.
 - Tests for uploads and document attachments.
 - Accident claims can be filed in the chat.
   - New personal accident policies in the sample data for Priya Sharma (`ACC-2020-445210`) and Aisha Bello (`ACC-2023-118734`): medical expenses, hospital cash, fracture and accidental death benefits, with a 90-day claim window.
@@ -29,6 +30,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
 
 ### Changed
+- The demo sign-in list reads the customer id from the field named by `customerIdArgument` (e.g. `clientId`), falling back to `customer_id`. The mock servers accept sample data that uses `clientId` too.
 - Customer messages can no longer contain the `<system-note>`, `<context>` and `<attachments>` tags the app uses for its own notes to the assistant.
 - One reply at a time per conversation: a second message while a reply is streaming gets a "please wait" response.
 - Branding updated to the new one-word **Sunlife** brand (announced October 2026): `BRAND_NAME` now defaults to `Sunlife`.

@@ -1,0 +1,94 @@
+[
+  {
+    "claim_id": "CLM-2026-004581",
+    "customer_id": "C1001",
+    "policy_number": "HLT-2018-110934",
+    "claim_type": "Dental - cleaning and fillings",
+    "status": "paid",
+    "submitted_date": "2026-08-12",
+    "service_date": "2026-08-05",
+    "amount_claimed": 420.00,
+    "amount_approved": 336.00,
+    "amount_paid": 336.00,
+    "paid_date": "2026-08-19",
+    "payment_method": "Direct deposit ••••4821",
+    "history": [
+      {"date": "2026-08-12", "event": "Claim submitted online"},
+      {"date": "2026-08-14", "event": "Assessed: 80% coverage applied"},
+      {"date": "2026-08-19", "event": "Payment issued"}
+    ]
+  },
+  {
+    "claim_id": "CLM-2026-005930",
+    "customer_id": "C1001",
+    "policy_number": "HLT-2018-110934",
+    "claim_type": "Paramedical - physiotherapy (6 sessions)",
+    "status": "in_review",
+    "submitted_date": "2026-10-15",
+    "service_date": "2026-10-01",
+    "amount_claimed": 540.00,
+    "amount_approved": null,
+    "amount_paid": null,
+    "expected_decision_by": "2026-10-29",
+    "outstanding_items": ["Physician referral letter for sessions after the 4th visit"],
+    "history": [
+      {"date": "2026-10-15", "event": "Claim submitted via mobile app"},
+      {"date": "2026-10-17", "event": "Additional information requested"}
+    ]
+  },
+  {
+    "claim_id": "CLM-2025-011207",
+    "customer_id": "C1001",
+    "policy_number": "HLT-2018-110934",
+    "claim_type": "Vision - prescription glasses",
+    "status": "denied",
+    "submitted_date": "2025-12-02",
+    "service_date": "2025-11-20",
+    "amount_claimed": 380.00,
+    "amount_approved": 0,
+    "amount_paid": 0,
+    "denial_reason": "Annual vision maximum ($300) already reached for 2025.",
+    "appeal_deadline": "2026-12-02",
+    "history": [
+      {"date": "2025-12-02", "event": "Claim submitted online"},
+      {"date": "2025-12-05", "event": "Claim denied - annual maximum reached"}
+    ]
+  },
+  {
+    "claim_id": "CLM-2026-003318",
+    "customer_id": "C1002",
+    "policy_number": "DIS-2021-300877",
+    "claim_type": "Disability - short-term (back injury)",
+    "status": "denied",
+    "submitted_date": "2026-01-20",
+    "service_date": "2025-12-28",
+    "amount_claimed": 4500.00,
+    "amount_approved": 0,
+    "amount_paid": 0,
+    "denial_reason": "Policy was lapsed on the date of disability (lapsed 2025-08-01).",
+    "appeal_deadline": "2027-01-20",
+    "history": [
+      {"date": "2026-01-20", "event": "Claim submitted by phone"},
+      {"date": "2026-02-03", "event": "Claim denied - no coverage in force"}
+    ]
+  },
+  {
+    "claim_id": "CLM-2026-006102",
+    "customer_id": "C1003",
+    "policy_number": "CI-2022-904412",
+    "claim_type": "Critical illness - diagnosis benefit",
+    "status": "submitted",
+    "submitted_date": "2026-10-21",
+    "service_date": "2026-10-02",
+    "amount_claimed": 100000.00,
+    "amount_approved": null,
+    "amount_paid": null,
+    "expected_decision_by": "2026-11-25",
+    "outstanding_items": ["Attending physician statement", "Pathology report"],
+    "assigned_case_manager": "Rachel Lin, ext. 4417",
+    "history": [
+      {"date": "2026-10-21", "event": "Claim submitted online"},
+      {"date": "2026-10-22", "event": "Case manager assigned"}
+    ]
+  }
+]
