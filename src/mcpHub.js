@@ -28,6 +28,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { toolChecks } from "./security.js";
 import { clip, noTrace } from "./trace.js";
 
 const PROJECT_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -170,6 +171,17 @@ export class MCPHub {
   async call(claudeName, args, customerId, uploads = new Map(), trace = noTrace) {
     const tool = this.tools.get(claudeName);
     if (!tool) return { text: `Unknown tool ${claudeName}`, isError: true };
+    const transport = this.config.servers[tool.server]?.transport ?? "stdio";
+    toolChecks(trace, {
+      server: tool.server,
+      transport,
+      tool: tool.mcpName,
+      scoped: tool.scoped,
+      customerArg: this.customerArg,
+      customerId,
+      takesUpload: tool.takesUpload,
+      gated: Boolean(this.confirmations[claudeName]),
+    });
     const callArgs = { ...(args ?? {}) };
     // Always the signed-in customer, never the model's choice.
     if (tool.scoped) callArgs[this.customerArg] = customerId;
@@ -183,7 +195,7 @@ export class MCPHub {
     }
     const step = trace.start("tool", `MCP ${tool.server} › ${tool.mcpName}`, {
       server: tool.server,
-      transport: this.config.servers[tool.server]?.transport ?? "stdio",
+      transport,
       tool: tool.mcpName,
       arguments: tool.takesUpload
         ? { ...callArgs, [this.uploadArgs.content]: `<${callArgs[this.uploadArgs.content].length} base64 characters>` }

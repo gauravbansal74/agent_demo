@@ -11,6 +11,7 @@ import path from "node:path";
 import { CopilotClient, ToolSet, defineTool } from "@github/copilot-sdk";
 import { SYSTEM_PROMPT, toolLabel } from "./agent.js";
 import { holdForConfirmation } from "./confirmations.js";
+import { llmChecks } from "./security.js";
 
 export const COPILOT_MODEL = process.env.COPILOT_MODEL ?? "gpt-5";
 const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
@@ -127,6 +128,7 @@ export class CopilotAgent {
     // Tool handlers run inside the session, so they hand UI events (confirmation cards) to this turn.
     convo.emit = (event) => queue.push(event);
     // Copilot runs its own tool loop, so the whole turn is one step; MCP calls show up inside it.
+    llmChecks(convo.trace, { provider: "GitHub Copilot", toolsOffered: this.hub.claudeTools() });
     const step = convo.trace.start("llm", "GitHub Copilot turn", { model: COPILOT_MODEL, effort: EFFORT });
     let chars = 0;
     try {

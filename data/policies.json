@@ -1,7 +1,7 @@
 [
   {
     "policy_number": "LIF-2014-558201",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "product": "Term Life 20",
     "type": "life",
     "status": "active",
@@ -16,7 +16,7 @@
   },
   {
     "policy_number": "HLT-2018-110934",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "product": "Personal Health Plan - Enhanced",
     "type": "health",
     "status": "active",
@@ -79,7 +79,7 @@
   },
   {
     "policy_number": "ACC-2020-445210",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "product": "Personal Accident Protection",
     "type": "accident",
     "status": "active",

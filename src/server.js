@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { BRAND_NAME, BRAND_TAGLINE, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
 import { resolveConfirmation } from "./confirmations.js";
+import { SHOW_SECURITY, requestChecks } from "./security.js";
 import { SHOW_FLOW, noTrace, tracer } from "./trace.js";
 import { MCPHub, loadConfig } from "./mcpHub.js";
 
@@ -24,7 +25,8 @@ function brandAsset(name) {
 
 const hasToolUse = (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use");
 // Customers can't pose as the app: tags the app uses for its own notes are defused in their messages.
-const defuseTags = (text) => text.replace(/<(\/?)\s*(system-note|context|attachments)\b/gi, "‹$1$2");
+const APP_TAGS = /<(\/?)\s*(system-note|context|attachments)\b/gi;
+const defuseTags = (text) => text.replace(APP_TAGS, "‹$1$2");
 
 // Customer uploads (claim documents). The type is taken from the file's first bytes, not from
 // what the browser claims, and files stay in the chat session until it ends.
@@ -57,6 +59,7 @@ async function streamTurn(res, convo, request, events) {
   const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
   convo.trace = SHOW_FLOW ? tracer(send) : noTrace;
   const turn = convo.trace.start("request", request.title, request.detail);
+  request.checks?.(convo.trace);
   let status = "ok";
   try {
     for await (const event of events()) send(event);
@@ -104,6 +107,7 @@ export function createApp(agent) {
       flow: SHOW_FLOW
         ? {
             llm: agent.describe?.() ?? null,
+            security: SHOW_SECURITY,
             servers: Object.entries(agent.hub.config.servers).map(([name, srv]) => ({ name, transport: srv.transport ?? "stdio" })),
           }
         : null,
@@ -155,6 +159,8 @@ export function createApp(agent) {
           attachments: files.map((f) => ({ upload_id: f.id, name: f.name, type: f.type, size: kb(f.size) })),
           sent_to_llm: text,
         },
+        checks: (trace) =>
+          requestChecks(trace, { customerId: convo.customerId, message, files, defused: message.match(APP_TAGS)?.length ?? 0 }),
       },
       () => agent.reply(convo, text),
     );
@@ -196,7 +202,11 @@ export function createApp(agent) {
     await streamTurn(
       res,
       convo,
-      { title: approved ? "Customer pressed confirm" : "Customer pressed cancel", detail: { approved, attested: req.body?.attested === true } },
+      {
+        title: approved ? "Customer pressed confirm" : "Customer pressed cancel",
+        detail: { approved, attested: req.body?.attested === true },
+        checks: (trace) => requestChecks(trace, { customerId: convo.customerId, confirmation: approved }),
+      },
       async function* () {
         const outcome = await resolveConfirmation(agent.hub, convo, id, approved);
         yield { type: "confirmed", outcome: outcome.outcome, result: outcome.result };

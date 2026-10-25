@@ -383,24 +383,26 @@ function confirmCard(event) {
 // ---- Behind the scenes: live technical flow of each message ----
 
 const flow = { nodes: {}, running: {}, turn: null, rows: {} };
-const KIND_LABEL = { request: "Server", llm: "AI model", tool: "MCP", confirm: "Confirmation" };
+const KIND_LABEL = { request: "Server", llm: "AI model", tool: "MCP - Domain Services", confirm: "Confirmation", security: "Security" };
 
 function setupFlow(info) {
   const map = $("flow-map");
   const node = (key, title, sub) => {
-    const n = el("div", "flow-node");
+    const n = el("div", `flow-node${key === "controller" ? " controller" : ""}`);
     n.append(el("strong", "", title), el("span", "", sub));
     flow.nodes[key] = n;
     return n;
   };
   const arrow = () => el("span", "flow-arrow", "→");
   const mcp = el("div", "flow-mcp");
-  for (const s of info.servers) mcp.append(node(`mcp:${s.name}`, `MCP: ${s.name}`, s.transport.replace("_", " ")));
+  const auth = info.security ? " · OAuth" : "";
+  for (const s of info.servers) mcp.append(node(`mcp:${s.name}`, `MCP: ${s.name}`, s.transport.replace("_", " ") + auth));
   map.append(
     node("browser", "Browser", "chat UI"),
     arrow(),
     node("server", "Backend", "Node.js + MCP hub"),
     arrow(),
+    ...(info.security ? [node("controller", "Execution controller", "security checks"), arrow()] : []),
     node("llm", info.llm?.provider ?? "AI model", info.llm?.model ?? ""),
     arrow(),
     mcp,
@@ -426,7 +428,7 @@ function setupFlow(info) {
 }
 
 const nodeFor = (e) =>
-  e.kind === "tool" ? `mcp:${e.detail?.server ?? flow.rows[e.id]?.server}` : { request: "server", llm: "llm", confirm: "browser" }[e.kind];
+  e.kind === "tool" ? `mcp:${e.detail?.server ?? flow.rows[e.id]?.server}` : { request: "server", llm: "llm", confirm: "browser", security: "controller" }[e.kind];
 
 function lightNode(key, delta) {
   const n = flow.nodes[key];
@@ -465,6 +467,7 @@ function summary(e, end) {
   }
   if (e.kind === "tool" && !end) return `args ${oneLine(d.arguments)}`;
   if (e.kind === "tool" && end) return d.status === "error" ? `error: ${oneLine(d.result).slice(0, 120)}` : `returned ${oneLine(d.result).length.toLocaleString()} characters`;
+  if (e.kind === "security") return `${d.passed} checks passed`;
   return d.note ?? "";
 }
 
@@ -489,7 +492,17 @@ function flowStep(e) {
   const details = el("details");
   details.append(el("summary", "", "Details"));
   const pre = el("pre", "", `// ${e.phase === "start" ? "Sent" : "Details"}\n${JSON.stringify(e.detail ?? {}, null, 2)}`);
-  details.append(pre);
+  if (e.kind === "security" && Array.isArray(e.detail?.checks)) {
+    const list = el("ul", "flow-checks");
+    for (const c of e.detail.checks) {
+      const li = el("li");
+      const text = el("div");
+      text.append(el("b", "", `${c.name}: `), el("span", "", c.result));
+      li.append(text);
+      list.append(li);
+    }
+    details.append(list);
+  } else details.append(pre);
   li.append(top, el("div", "flow-sum", summary(e, false)), details);
   flow.turn.querySelector(".flow-steps").append(li);
   const node = nodeFor(e);

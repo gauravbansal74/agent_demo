@@ -129,6 +129,16 @@ For demos, the **Behind the scenes** button in the header opens a panel that sho
 
 With GitHub Copilot, Copilot runs its own tool loop, so its whole turn shows as one AI step with the MCP calls inside it. With the Claude API, each request to Claude shows separately.
 
+### Security and the execution controller (demo)
+
+The panel also shows an **Execution controller** between the backend and the AI model and MCP servers, and **Security** steps in the timeline:
+
+- when a message or confirmation arrives: session token, origin and CSRF, rate limit, input validation, prompt-injection guard, sensitive data scan, upload ownership, and for confirmations the confirmation id and the customer's attestation
+- before each AI request: tool allowlist, customer id hidden from the model, pinned system prompt, provider connection
+- before each MCP call: tool allowlist, read or write policy, customer binding, argument validation, file ownership, the OAuth 2.1 token for that MCP server (audience, scope, expiry) and the server's verification of it
+
+**This is a demo.** The controller runs in bypass mode (`src/security.js`): every check is shown as passed and nothing is blocked, and the MCP servers aren't sent real tokens. The panel lists the checks without raw JSON; in `src/security.js` each one records whether the app really enforces it (`enforced: true`: customer id injection, upload ownership, the confirmation step, tag defusing, input length) or whether it's an illustration of what production would add. Hide these steps with `SHOW_SECURITY=false`.
+
 The panel shows customer data and tool results, so turn it off for real customers with `SHOW_FLOW=false`; the server then sends no trace at all.
 
 ## Configuration
@@ -147,6 +157,7 @@ The panel shows customer data and tool results, so turn it off for real customer
 | `MCP_CONFIG` | `mcp-servers.json` | MCP server config file |
 | `DEMO_CUSTOMERS` | `data/customers.json` | Customers offered on the demo sign-in page. The id is read from the field named by `customerIdArgument` (e.g. `clientId`), or `customer_id` |
 | `SHOW_FLOW` | `true` | Show the "Behind the scenes" panel; set `false` for real customers |
+| `SHOW_SECURITY` | `true` | Show the execution controller and security checks in the panel (demo, not enforced) |
 | `PORT` | `3000` | HTTP port |
 
 ## Branding
@@ -165,6 +176,7 @@ src/
   mcpHub.js         Connects to MCP servers, maps tools, injects customer id
   confirmations.js  Holds tools such as submit_claim until the customer confirms
   trace.js          Live step-by-step trace for the "Behind the scenes" panel
+  security.js       Execution controller checks shown in the panel (demo bypass mode)
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
   brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing

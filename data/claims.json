@@ -1,7 +1,7 @@
 [
   {
     "claim_id": "CLM-2026-004581",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "policy_number": "HLT-2018-110934",
     "claim_type": "Dental - cleaning and fillings",
     "status": "paid",
@@ -20,7 +20,7 @@
   },
   {
     "claim_id": "CLM-2026-005930",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "policy_number": "HLT-2018-110934",
     "claim_type": "Paramedical - physiotherapy (6 sessions)",
     "status": "in_review",
@@ -38,7 +38,7 @@
   },
   {
     "claim_id": "CLM-2025-011207",
-    "clientId": "C1001",
+    "clientId": "0028319228",
     "policy_number": "HLT-2018-110934",
     "claim_type": "Vision - prescription glasses",
     "status": "denied",

@@ -1,6 +1,7 @@
 // The customer chat agent: Claude plus the tools from the connected MCP servers.
 import Anthropic from "@anthropic-ai/sdk";
 import { holdForConfirmation } from "./confirmations.js";
+import { llmChecks } from "./security.js";
 import { noTrace } from "./trace.js";
 
 // "copilot" (default) uses the GitHub Copilot SDK (see copilotAgent.js);
@@ -102,6 +103,7 @@ export class InsuranceAgent {
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const params = this.#params(convo);
+      llmChecks(convo.trace, { provider: "Claude API", toolsOffered: params.tools });
       const step = convo.trace.start("llm", `Claude request ${round + 1}`, {
         model: params.model,
         messages_sent: params.messages.length,
