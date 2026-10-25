@@ -3,13 +3,11 @@
   "servers": {
     "policies": {
       "transport": "streamable_http",
-      "url": "${POLICY_MCP_URL}",
-      "headers": { "Authorization": "Bearer ${POLICY_MCP_TOKEN}" }
+      "url": "${POLICY_MCP_URL}"
     },
     "claims": {
-      "transport": "sse",
-      "url": "${CLAIMS_MCP_URL}",
-      "headers": { "x-api-key": "${CLAIMS_MCP_API_KEY}" }
+      "transport": "streamable_http",
+      "url": "${CLAIMS_MCP_URL}"
     }
   },
   "confirm": {
