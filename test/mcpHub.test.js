@@ -48,3 +48,22 @@ test("${VAR} values are read from the environment", () => {
   writeFileSync(file, JSON.stringify({ servers: { p: { transport: "streamable_http", url: "${POLICY_MCP_URL}" } } }));
   assert.equal(loadConfig(file).servers.p.url, "https://mcp.example.com/policies");
 });
+
+test("file tools work with other argument names, and only get the arguments they have", async () => {
+  const files = await new MCPHub({
+    customerIdArgument: "clientId",
+    uploadArguments: { content: "fileData" },
+    servers: { docs: { transport: "stdio", command: process.execPath, args: ["test/fixtures/file-echo-server.js"] } },
+  }).connect();
+  try {
+    assert.deepEqual(files.fileTools(), ["docs__upload_document"]);
+    const schema = files.claudeTools()[0].input_schema;
+    assert.deepEqual(Object.keys(schema.properties).sort(), ["claimNumber", "upload_id"]);
+    const uploads = new Map([["UPL-1", { name: "x.png", type: "image/png", data: Buffer.from("png") }]]);
+    const { text } = await files.call("docs__upload_document", { claimNumber: "CLM-1", upload_id: "UPL-1" }, "0028319228", uploads);
+    // No file_name or mime_type, which this tool doesn't have.
+    assert.deepEqual(JSON.parse(text), { claimNumber: "CLM-1", clientId: "0028319228", fileData: Buffer.from("png").toString("base64") });
+  } finally {
+    await files.close();
+  }
+});

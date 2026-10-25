@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --env-file=.env src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "tools": "node --env-file=.env scripts/list-tools.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

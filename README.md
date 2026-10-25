@@ -66,7 +66,15 @@ Edit `mcp-servers.json` (or point `MCP_CONFIG` at another file). See `mcp-server
 }
 ```
 
-`${VAR}` values are read from the environment, so URLs and secrets stay out of the file. Tools are discovered automatically at startup and exposed to the LLM as `<server>__<tool>`. `GET /api/tools` lists what was found.
+`${VAR}` values are read from the environment, so URLs and secrets stay out of the file. Tools are discovered automatically at startup and exposed to the LLM as `<server>__<tool>`. `GET /api/tools` lists what was found, and the startup log names each server's tools.
+
+To see every tool with its arguments and how the app will use it, run:
+
+```bash
+npm run tools
+```
+
+It marks the customer id argument, file tools and tools that need the customer's confirmation, and if no tool takes files it suggests an `uploadArguments` line for a tool that looks like it does. Use it to fill in `confirm` and `uploadArguments` for your own servers: the names there must match yours exactly, as `<server>__<tool>`. A startup warning such as `"confirm" in the MCP config names unknown tool claims__submit_claim` means your claims server has no tool called `submit_claim`.
 
 ### Customer scoping (important)
 
@@ -104,6 +112,8 @@ Customers can attach photos (JPG, PNG, WebP) or PDFs with the paperclip button n
 ```json
 "uploadArguments": { "content": "fileData", "fileName": "fileName", "mimeType": "contentType" }
 ```
+
+Only `content` is needed: the file name and type are sent only if the tool has those arguments. At startup the log says which tools take files, or warns that none does. In that case uploads still work in the chat, but the assistant can't add them to a claim; run `npm run tools` to find the right argument names.
 
 The mock server checks the file type again, records a SHA-256 hash, and keeps only the file details in memory, not the file itself. A real server should store the file, virus-scan it, and enforce its own size and type limits.
 
@@ -158,6 +168,7 @@ src/
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
   brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing
+scripts/list-tools.mjs  `npm run tools`: lists your MCP tools and suggests config
 mcp-servers.mock.json  Config for the mock servers (used by the tests)
 data/               Sample customers, policies (incl. personal accident) and claims for the mocks
 test/               Offline tests (the LLM is faked; mock MCP servers run for real)

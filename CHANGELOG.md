@@ -5,9 +5,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ## [Unreleased]
 
 ### Changed
+- File tools are only sent the file name and type if they have those arguments, so a tool that just takes the contents (set with `uploadArguments`) works.
+- Clearer startup messages for your own MCP servers: each server's tool names, which tools take uploaded files (or a warning that none does), and how to fix a `confirm` entry that names a tool your server doesn't have.
 - Demo customers and their family members now have English names (for example Emily, James and Lucy Carter, Thomas Wright, Sarah and David Mitchell) in the sample data, tests and docs.
 
 ### Added
+- `npm run tools` (`scripts/list-tools.mjs`): lists every MCP tool with its arguments, marks customer-scoped, file and confirmation tools, and suggests `uploadArguments` when no tool takes files. Helps set up `confirm` and uploads for real MCP servers.
 - "Behind the scenes" panel (header button) showing the technical flow of every message live: a map of the browser, backend, AI model and MCP servers that lights up as each works, and a timeline of steps (message received, each AI request with tool calls and tokens, each MCP call with arguments and result, confirmations) with timings and expandable details. Steps are streamed as `trace` events with the chat (`src/trace.js`). Works with Copilot and the Claude API. Turn off with `SHOW_FLOW=false`.
 - Photo and document upload in the chat: a paperclip button next to the message box, thumbnails before sending, and the files shown in the customer's message. JPG, PNG, WebP and PDF, up to 8 MB each and 20 per chat, checked by their contents (`POST /api/upload`).
 - Mock claims server tool `attach_claim_document`: attaches a file to a draft (before submission) or a filed claim, matched to a required document. Drafts and claims now list documents received and documents still outstanding; `submit_claim` files the attached documents with the claim.

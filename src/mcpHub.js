@@ -88,12 +88,23 @@ export class MCPHub {
         this.clients.push(client);
         const { tools } = await client.listTools();
         for (const tool of tools) this.#register(name, client, tool);
-        console.log(`MCP server "${name}" connected with ${tools.length} tools`);
+        console.log(`MCP server "${name}" connected with ${tools.length} tools: ${tools.map((t) => t.name).join(", ")}`);
       }
       for (const [name, rule] of Object.entries(this.confirmations)) {
         for (const tool of [name, rule.preview].filter(Boolean)) {
-          if (!this.tools.has(tool)) console.warn(`"confirm" in the MCP config names unknown tool ${tool}`);
+          if (!this.tools.has(tool)) {
+            console.warn(
+              `"confirm" in the MCP config names unknown tool ${tool}. Use "<server>__<tool>" with a name from the lists above; run "npm run tools" to see them all.`,
+            );
+          }
         }
+      }
+      const files = this.fileTools();
+      if (files.length) console.log(`Uploaded files can be sent with: ${files.join(", ")}`);
+      else {
+        console.warn(
+          `No MCP tool takes files, so uploads can't be sent to a claim. A tool needs an argument named "${this.uploadArgs.content}"; if yours is named differently, set "uploadArguments" in the MCP config ("npm run tools" suggests it).`,
+        );
       }
     } catch (err) {
       await this.close();
@@ -116,8 +127,9 @@ export class MCPHub {
       schema.required = (schema.required ?? []).filter((r) => r !== this.customerArg);
     }
     const takesUpload = this.uploadArgs.content in schema.properties;
+    // File name and MIME type are only sent if the tool has those arguments.
+    const fileArgs = takesUpload ? Object.values(this.uploadArgs).filter((a) => a in schema.properties) : [];
     if (takesUpload) {
-      const fileArgs = Object.values(this.uploadArgs);
       for (const arg of fileArgs) delete schema.properties[arg];
       schema.properties.upload_id = {
         type: "string",
@@ -134,6 +146,8 @@ export class MCPHub {
       mcpName: tool.name,
       scoped,
       takesUpload,
+      fileArgs,
+      inputSchema: tool.inputSchema ?? {},
       claudeTool: { name: claudeName, description: tool.description ?? tool.title ?? tool.name, input_schema: schema },
     });
   }
@@ -164,9 +178,8 @@ export class MCPHub {
       const file = uploads.get(String(callArgs.upload_id ?? ""));
       if (!file) return { text: `No file with upload_id ${JSON.stringify(callArgs.upload_id)} was uploaded in this chat`, isError: true };
       delete callArgs.upload_id;
-      callArgs[this.uploadArgs.content] = file.data.toString("base64");
-      callArgs[this.uploadArgs.fileName] = file.name;
-      callArgs[this.uploadArgs.mimeType] = file.type;
+      const values = { [this.uploadArgs.content]: file.data.toString("base64"), [this.uploadArgs.fileName]: file.name, [this.uploadArgs.mimeType]: file.type };
+      for (const arg of tool.fileArgs) callArgs[arg] = values[arg];
     }
     const step = trace.start("tool", `MCP ${tool.server} › ${tool.mcpName}`, {
       server: tool.server,
@@ -177,7 +190,7 @@ export class MCPHub {
         : callArgs,
       added_by_backend: [
         ...(tool.scoped ? [this.customerArg] : []),
-        ...(tool.takesUpload ? Object.values(this.uploadArgs) : []),
+        ...tool.fileArgs,
       ],
     });
     try {
