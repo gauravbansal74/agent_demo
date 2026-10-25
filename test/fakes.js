@@ -1,4 +1,21 @@
 // A scripted stand-in for the Anthropic client so the agent loop can be tested offline.
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadConfig } from "../src/mcpHub.js";
+
+// Tests run the mock MCP servers on their own copy of the sample data (test/fixtures), so editing
+// data/ or mcp-servers.json for a demo doesn't break them.
+export const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
+process.env.DEMO_CUSTOMERS = path.join(FIXTURES, "customers.json");
+
+/** Mock-server MCP config pointed at the fixtures, with "today" pinned for the claim window checks. */
+export function mockConfig() {
+  const config = loadConfig(path.join(FIXTURES, "..", "..", "mcp-servers.mock.json"));
+  for (const server of Object.values(config.servers)) {
+    server.env = { ...server.env, INSURANCE_DATA_DIR: FIXTURES, MOCK_TODAY: "2026-10-24" };
+  }
+  return config;
+}
 export const message = (content, stop_reason) => ({
   id: "msg_test",
   type: "message",

@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { after, before, test } from "node:test";
 import { InsuranceAgent } from "../src/agent.js";
-import { MCPHub, loadConfig } from "../src/mcpHub.js";
+import { MCPHub } from "../src/mcpHub.js";
 import { createApp } from "../src/server.js";
-import { FakeClient, message } from "./fakes.js";
+import { FakeClient, message, mockConfig } from "./fakes.js";
 
 let hub, server, base, agent;
 before(async () => {
-  hub = await new MCPHub(loadConfig("mcp-servers.mock.json")).connect();
+  hub = await new MCPHub(mockConfig()).connect();
   agent = new InsuranceAgent(hub, new FakeClient([]));
   server = createApp(agent).listen(0);
   base = `http://localhost:${server.address().port}`;
@@ -48,4 +51,18 @@ test("chat requires a session", async () => {
 
 test("index page is served", async () => {
   assert.match(await (await fetch(`${base}/`)).text(), /Customer Assistant/);
+});
+
+test("demo sign-in list reads the configured customer id field", async () => {
+  const file = path.join(tmpdir(), `customers-${process.pid}.json`);
+  writeFileSync(file, JSON.stringify([{ clientId: "0028319228", first_name: "Priya", last_name: "Sharma" }]));
+  const saved = [process.env.DEMO_CUSTOMERS, hub.customerArg];
+  process.env.DEMO_CUSTOMERS = file;
+  hub.customerArg = "clientId";
+  try {
+    const cfg = await (await fetch(`${base}/api/config`)).json();
+    assert.deepEqual(cfg.demo_customers, [{ customer_id: "0028319228", name: "Priya Sharma" }]);
+  } finally {
+    [process.env.DEMO_CUSTOMERS, hub.customerArg] = saved;
+  }
 });

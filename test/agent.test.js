@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import Anthropic from "@anthropic-ai/sdk";
 import { Conversation, InsuranceAgent } from "../src/agent.js";
-import { MCPHub, loadConfig } from "../src/mcpHub.js";
-import { FakeClient, message } from "./fakes.js";
+import { MCPHub } from "../src/mcpHub.js";
+import { FakeClient, message, mockConfig } from "./fakes.js";
 
 let hub;
 before(async () => {
-  hub = await new MCPHub(loadConfig("mcp-servers.mock.json")).connect();
+  hub = await new MCPHub(mockConfig()).connect();
 });
 after(() => hub.close());
 

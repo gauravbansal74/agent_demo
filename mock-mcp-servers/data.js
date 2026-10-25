@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 const DATA_DIR = process.env.INSURANCE_DATA_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
 
 export function load(name) {
-  return JSON.parse(readFileSync(path.join(DATA_DIR, `${name}.json`), "utf8"));
+  const records = JSON.parse(readFileSync(path.join(DATA_DIR, `${name}.json`), "utf8"));
+  // Sample data may name the customer field "clientId" instead of "customer_id".
+  return records.map((r) => (r.customer_id === undefined && r.clientId !== undefined ? { ...r, customer_id: r.clientId } : r));
 }
 
 export const json = (value) => ({

@@ -11,7 +11,7 @@ import { MCPHub, loadConfig } from "./mcpHub.js";
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MCP_CONFIG = process.env.MCP_CONFIG ?? path.join(ROOT, "mcp-servers.json");
 // Demo sign-in list. Replace the demo sign-in with your identity provider in production.
-const DEMO_CUSTOMERS = path.join(ROOT, "data", "customers.json");
+const demoCustomersFile = () => process.env.DEMO_CUSTOMERS ?? path.join(ROOT, "data", "customers.json");
 
 // Brand artwork: drop the official files into public/brand/ (see README). Falls back to the placeholder.
 const BRAND_DIR = path.join(ROOT, "public", "brand");
@@ -75,9 +75,11 @@ export function createApp(agent) {
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/api/config", (req, res) => {
-    const customers = existsSync(DEMO_CUSTOMERS)
-      ? JSON.parse(readFileSync(DEMO_CUSTOMERS, "utf8")).map((c) => ({
-          customer_id: c.customer_id,
+    const file = demoCustomersFile();
+    const customers = existsSync(file)
+      ? JSON.parse(readFileSync(file, "utf8")).map((c) => ({
+          // The id field may follow your servers' naming (customerIdArgument, e.g. "clientId").
+          customer_id: c[agent.hub.customerArg] ?? c.customer_id,
           name: `${c.first_name} ${c.last_name}`,
         }))
       : [];
