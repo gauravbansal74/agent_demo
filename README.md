@@ -1,6 +1,6 @@
 # Insurance Customer Chat Agent (Node.js)
 
-A customer-facing chat assistant for an insurance company, built as a demo. A signed-in customer asks about their own policies and claims in plain language; an LLM answers by calling tools on your **policy and claims MCP servers**. The chat UI follows the Sunlife brand ("Making life brighter": sunshine yellow, deep navy, clean type, rounded cards) and shows the official logo once you add it to `public/brand/`.
+A customer-facing chat assistant for an insurance company, built as a demo. A signed-in customer asks about their own policies and claims in plain language, and can file an accident claim right in the chat; an LLM answers by calling tools on your **policy and claims MCP servers**. The chat UI follows the Sunlife brand ("Making life brighter": sunshine yellow, deep navy, clean type, rounded cards) and shows the official logo once you add it to `public/brand/`.
 
 ```
 Browser (chat UI)  ──SSE──►  Express backend  ──►  LLM: GitHub Copilot or Claude API
@@ -72,6 +72,27 @@ Edit `mcp-servers.json` (or point `MCP_CONFIG` at another file). See `mcp-server
 
 If a tool has an argument named `customer_id` (configurable via `customerIdArgument`), the backend **removes it from what the LLM sees and fills it in from the signed-in session** on every call. The LLM can never request another customer's records, even if a user tries to trick it. If your servers identify the customer differently (for example a per-user token), adapt `MCPHub.call` in `src/mcpHub.js`.
 
+## Accident claims in the chat
+
+Customers with a personal accident policy can file a claim by chatting, for example "I had an accident and want to make a claim". The demo customers Priya Sharma (C1001) and Aisha Bello (C1003) each have one.
+
+1. The assistant asks for the details a step at a time: who was hurt, when and where, what happened, the injuries, and which benefits apply (medical expenses, nights in hospital, fracture).
+2. It creates a **draft** (`create_accident_claim`). The claims server checks it against the policy: the policy must be an active accident policy on this customer's account, the injured person must be covered, and the accident must be within the 90-day claim window and not in the future. It returns the estimated payout (with policy limits applied) and the documents needed.
+3. When the assistant calls `submit_claim`, the claim is **not** filed. The customer sees a confirmation card with the details, estimated payout and required documents. They tick "I confirm this information is true and complete" and press **Submit claim** (or Cancel).
+4. Only then does the backend run `submit_claim` (`POST /api/confirm`). The new claim number appears in the chat, and the claim shows up in "list claims" and "claim status" with its outstanding documents.
+
+The confirmation step is enforced by the backend, not by the LLM's good behaviour: tools listed under `confirm` in `mcp-servers.json` never run from a model call. The same works for any of your own tools that change something:
+
+```json
+"confirm": {
+  "claims__submit_claim": { "title": "Submit this claim?", "confirmLabel": "Submit claim", "preview": "claims__get_claim_draft" }
+}
+```
+
+`preview` is an optional tool called with the same arguments to fill the card. It works best when it returns `title`, `summary` (a list of `{label, value}`), `benefits`, `estimated_total_payout`, `required_documents` and `disclaimer`, like the mock's `get_claim_draft`.
+
+In the mock server, filed claims and drafts live in memory and disappear when the app restarts. Other claim types (health, dental, life and so on) are still pointed to the portal or app; accidental death claims are referred to customer service.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -102,10 +123,11 @@ src/
   agent.js          Claude agent: tool-use loop, shared system prompt, provider setting
   copilotAgent.js   Same agent on the GitHub Copilot SDK (default)
   mcpHub.js         Connects to MCP servers, maps tools, injects customer id
+  confirmations.js  Holds tools such as submit_claim until the customer confirms
 public/             Chat UI (HTML/CSS/JS, vendored marked + DOMPurify)
   brand/            Drop the official logo files here
 mock-mcp-servers/   Stand-in policy and claims MCP servers for local testing
-data/               Sample customers, policies and claims for the mocks
+data/               Sample customers, policies (incl. personal accident) and claims for the mocks
 test/               Offline tests (the LLM is faked; mock MCP servers run for real)
 CHANGELOG.md        Record of changes
 ```
@@ -122,7 +144,8 @@ The tests need no API keys: Claude and Copilot are replaced by scripted fakes, w
 
 - Replace the demo sign-in (`POST /api/session`) with your real customer authentication and derive `customer_id` from the verified identity.
 - Move chat sessions from memory to Redis or a database if you run more than one instance.
-- Add rate limiting and audit logging of tool calls to suit your compliance requirements.
+- Add rate limiting and audit logging of tool calls to suit your compliance requirements. Log each confirmation (who, when, what was attested) as part of the claim record.
+- Have your claims server enforce its own rules (ownership, claim window, limits, duplicates) as the mock does; don't rely on the LLM or the UI for them.
 
 ## Contributing
 

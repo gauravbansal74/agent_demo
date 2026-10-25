@@ -29,7 +29,7 @@ test("customer_id is injected and cannot be overridden by the model", async () =
   const { text, isError } = await hub.call("policies__list_policies", { customer_id: "C1002" }, "C1001");
   assert.equal(isError, false);
   const numbers = JSON.parse(text).result.map((p) => p.policy_number).sort();
-  assert.deepEqual(numbers, ["HLT-2018-110934", "LIF-2014-558201"]);
+  assert.deepEqual(numbers, ["ACC-2020-445210", "HLT-2018-110934", "LIF-2014-558201"]);
 });
 
 test("another customer's claim is not found", async () => {

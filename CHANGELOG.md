@@ -8,11 +8,22 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
 
 ### Added
+- Accident claims can be filed in the chat.
+  - New personal accident policies in the sample data for Priya Sharma (`ACC-2020-445210`) and Aisha Bello (`ACC-2023-118734`): medical expenses, hospital cash, fracture and accidental death benefits, with a 90-day claim window.
+  - Mock claims server tools `create_accident_claim` (draft with checks and estimated payout), `get_claim_draft` and `submit_claim`. Filed claims appear in `list_claims`, `get_claim_status` and `get_claims_summary`.
+  - Claim submission guide entry for `accident`.
+  - The assistant's instructions cover collecting the claim details step by step and never claiming a claim was filed before it was.
+- Customer confirmation for tools that change something (`src/confirmations.js`, `"confirm"` in `mcp-servers.json`). The tool only runs after the customer ticks "true and complete" and presses the button on a confirmation card (`POST /api/confirm`), with both Copilot and Claude.
+- Confirmation card in the chat UI: claim summary, benefits and estimated payout, documents needed, attestation checkbox, Submit claim and Cancel.
+- Suggested question "I had an accident and want to make a claim".
+- Tests for accident claims, the confirmation step and both agents.
 - Official logo support: files dropped into `public/brand/` (`logo.*` for the header, `mark.*` for the avatar and browser tab) are picked up automatically, with the placeholder as fallback.
 - Brand tagline "Making life brighter" on the sign-in page (`BRAND_TAGLINE`).
 - `CHANGELOG.md` (this file), and a Contributing note in the README to keep it updated.
 
 ### Changed
+- Customer messages can no longer contain the `<system-note>` and `<context>` tags the app uses for its own notes to the assistant.
+- One reply at a time per conversation: a second message while a reply is streaming gets a "please wait" response.
 - Branding updated to the new one-word **Sunlife** brand (announced October 2026): `BRAND_NAME` now defaults to `Sunlife`.
 - The header is now white with the yellow underline, so the official logo sits on its intended background.
 - GitHub Copilot is now the default LLM (`LLM_PROVIDER` defaults to `copilot`); the Claude API stays available with `LLM_PROVIDER=anthropic`. An unknown `LLM_PROVIDER` value now stops the server with a clear error.

@@ -1,7 +1,10 @@
 {
-  "customerIdArgument": "customer_id",
+  "customerIdArgument": "clientId",
   "servers": {
     "policies": { "transport": "stdio", "command": "node", "args": ["mock-mcp-servers/policy-server.js"] },
     "claims": { "transport": "stdio", "command": "node", "args": ["mock-mcp-servers/claims-server.js"] }
+  },
+  "confirm": {
+    "claims__submit_claim": { "title": "Submit this claim?", "confirmLabel": "Submit claim", "preview": "claims__get_claim_draft" }
   }
 }

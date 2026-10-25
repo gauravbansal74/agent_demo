@@ -142,6 +142,33 @@ input {
 .btn-send:disabled { opacity: .5; cursor: default; }
 .disclaimer { text-align: center; font-size: .8rem; color: var(--muted); margin: 8px 0 14px; }
 
+/* Confirmation card (e.g. "Submit this claim?") */
+.confirm-card { margin-top: 12px; border: 1px solid var(--line); border-top: 4px solid var(--brand-yellow); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.confirm-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.confirm-head strong { color: var(--brand-navy); font-size: 1.1rem; }
+.confirm-head span { color: var(--muted); font-size: .9rem; }
+.confirm-rows { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0 0 12px; font-size: .95rem; }
+.confirm-rows dt { color: var(--muted); }
+.confirm-rows dd { margin: 0; overflow-wrap: anywhere; }
+.bubble table.confirm-benefits { display: table; width: 100%; margin: 4px 0 8px; }
+.confirm-benefits small { display: block; color: var(--muted); }
+.confirm-benefits .num { text-align: right; white-space: nowrap; }
+.confirm-total { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); }
+.confirm-total strong { font-size: 1.2rem; color: var(--brand-navy); }
+.confirm-note { color: var(--muted); font-size: .85rem; margin: 0 0 8px; }
+.confirm-docs { margin: 0 0 12px; font-size: .95rem; }
+.confirm-docs summary { cursor: pointer; color: var(--brand-navy-2); font-weight: 600; }
+.confirm-attest { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; margin: 4px 0 12px; cursor: pointer; }
+.confirm-attest input { width: 18px; height: 18px; margin: 2px 0 0; flex: none; accent-color: var(--brand-navy); }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.confirm-actions button { width: auto; padding: 10px 20px; font-size: 1rem; }
+.btn-primary:disabled { opacity: .5; cursor: default; background: var(--brand-yellow); }
+.btn-secondary { border: 1px solid var(--brand-navy-2); background: #fff; color: var(--brand-navy-2); border-radius: 999px; cursor: pointer; font-weight: 600; }
+.btn-secondary:hover { background: var(--bg); }
+.confirm-status { font-weight: 700; padding: 8px 12px; border-radius: 8px; }
+.confirm-card.ok .confirm-status { background: #E6F4EA; color: #1E6B34; }
+.confirm-card.cancelled .confirm-status, .confirm-card.failed .confirm-status { background: var(--bg); color: var(--muted); }
+
 @media (max-width: 760px) {
   .topbar { padding: 10px 16px; }
   .greeting { display: none; }

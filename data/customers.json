@@ -1,6 +1,6 @@
 [
   {
-    "customer_id": "C1001",
+    "clientId": "C1001",
     "first_name": "Priya",
     "last_name": "Sharma",
     "email": "priya.sharma@example.com",
@@ -10,7 +10,7 @@
     "advisor": {"name": "Daniel Okafor", "phone": "+1-416-555-0199", "email": "d.okafor@advisors.example.com"}
   },
   {
-    "customer_id": "C1002",
+    "clientId": "C1002",
     "first_name": "Marc",
     "last_name": "Tremblay",
     "email": "marc.tremblay@example.com",
@@ -20,7 +20,7 @@
     "advisor": {"name": "Sophie Gagnon", "phone": "+1-514-555-0123", "email": "s.gagnon@advisors.example.com"}
   },
   {
-    "customer_id": "C1003",
+    "clientId": "C1003",
     "first_name": "Aisha",
     "last_name": "Bello",
     "email": "aisha.bello@example.com",

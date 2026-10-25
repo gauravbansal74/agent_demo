@@ -97,15 +97,14 @@ function scrollDown() {
   $("messages").scrollTop = $("messages").scrollHeight;
 }
 
-async function send(text) {
-  text = text.trim();
-  if (!text || busy) return;
-  busy = true;
-  $("send").disabled = true;
-  $("input").value = "";
-  $("input").style.height = "auto";
+function setBusy(value) {
+  busy = value;
+  $("send").disabled = value;
+  if (!value) $("input").focus();
+}
 
-  addMessage("user").textContent = text;
+/** Adds a bot bubble and fills it from an SSE response (POST url with body). */
+async function streamReply(url, body, { onConfirmed } = {}) {
   const bubble = addMessage("bot");
   bubble.innerHTML = `<div class="activity"></div><div class="content"><span class="typing"><span></span><span></span><span></span></span></div>`;
   const activity = bubble.querySelector(".activity");
@@ -113,14 +112,14 @@ async function send(text) {
   scrollDown();
 
   let answer = "";
+  const showText = () => (content.innerHTML = renderMarkdown(answer));
   try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, message: text }),
-    });
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.status === 401) throw new Error("Your session has expired. Please sign out and sign in again.");
-    if (!res.ok) throw new Error("Something went wrong. Please try again.");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? "Something went wrong. Please try again.");
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -136,16 +135,22 @@ async function send(text) {
         const event = JSON.parse(part.slice(6));
         if (event.type === "text") {
           answer += event.text;
-          content.innerHTML = renderMarkdown(answer);
+          showText();
         } else if (event.type === "tool") {
           const chip = document.createElement("span");
           chip.className = "chip";
           chip.textContent = event.label;
           activity.appendChild(chip);
+        } else if (event.type === "confirm") {
+          bubble.appendChild(confirmCard(event));
+        } else if (event.type === "confirmed") {
+          onConfirmed?.(event);
         } else if (event.type === "error") {
           answer += (answer ? "\n\n" : "") + event.text;
-          content.innerHTML = renderMarkdown(answer);
+          showText();
           bubble.classList.add("error");
+        } else if (event.type === "done" && !answer) {
+          content.remove();
         }
         scrollDown();
       }
@@ -153,11 +158,131 @@ async function send(text) {
   } catch (err) {
     content.textContent = err.message;
     bubble.classList.add("error");
-  } finally {
-    busy = false;
-    $("send").disabled = false;
-    $("input").focus();
   }
+}
+
+async function send(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  setBusy(true);
+  $("input").value = "";
+  $("input").style.height = "auto";
+  addMessage("user").textContent = text;
+  try {
+    await streamReply("/api/chat", { session_id: sessionId, message: text });
+  } finally {
+    setBusy(false);
+  }
+}
+
+const money = (n, currency = "CAD") =>
+  Number(n).toLocaleString("en-CA", { style: "currency", currency, currencyDisplay: "narrowSymbol" });
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/** Confirmation card for an action the assistant prepared (e.g. a claim). Nothing happens until the customer presses confirm. */
+function confirmCard(event) {
+  const p = event.preview ?? {};
+  const card = el("div", "confirm-card");
+  card.setAttribute("role", "group");
+  card.setAttribute("aria-label", event.title);
+
+  const head = el("div", "confirm-head");
+  head.append(el("strong", "", event.title));
+  if (p.title || p.policy) head.append(el("span", "", [p.title, p.policy].filter(Boolean).join(" · ")));
+  card.append(head);
+
+  const rows = p.summary ?? Object.entries(p).filter(([, v]) => typeof v !== "object").map(([label, value]) => ({ label, value }));
+  if (rows.length) {
+    const dl = el("dl", "confirm-rows");
+    for (const { label, value } of rows) dl.append(el("dt", "", label), el("dd", "", String(value)));
+    card.append(dl);
+  }
+
+  if (p.benefits?.length) {
+    const table = el("table", "confirm-benefits");
+    table.innerHTML = "<thead><tr><th>Benefit</th><th>Estimated payout</th></tr></thead>";
+    const tbody = el("tbody");
+    for (const b of p.benefits) {
+      const tr = el("tr");
+      const name = el("td", "", b.benefit);
+      if (b.note) name.append(el("small", "", b.note));
+      tr.append(name, el("td", "num", money(b.estimated_payout, p.currency)));
+      tbody.append(tr);
+    }
+    table.append(tbody);
+    card.append(table);
+  }
+  if (p.estimated_total_payout !== undefined) {
+    const total = el("div", "confirm-total", "Estimated total ");
+    total.append(el("strong", "", money(p.estimated_total_payout, p.currency)));
+    card.append(total);
+  }
+  if (p.disclaimer) card.append(el("p", "confirm-note", p.disclaimer));
+  if (p.required_documents?.length) {
+    const docs = el("details", "confirm-docs");
+    docs.append(el("summary", "", `Documents you'll need to upload (${p.required_documents.length})`));
+    const ul = el("ul");
+    for (const d of p.required_documents) ul.append(el("li", "", d));
+    docs.append(ul);
+    card.append(docs);
+  }
+
+  const attest = el("label", "confirm-attest");
+  const box = el("input");
+  box.type = "checkbox";
+  attest.append(box, el("span", "", "I confirm this information is true and complete."));
+  const cancel = el("button", "btn-secondary", "Cancel");
+  const ok = el("button", "btn-primary", event.confirm_label ?? "Confirm");
+  cancel.type = ok.type = "button";
+  ok.disabled = true;
+  box.onchange = () => (ok.disabled = !box.checked);
+  const actions = el("div", "confirm-actions");
+  actions.append(cancel, ok);
+  const status = el("div", "confirm-status");
+  status.hidden = true;
+  card.append(attest, actions, status);
+
+  const answer = async (approved) => {
+    if (busy) return;
+    setBusy(true);
+    box.disabled = ok.disabled = cancel.disabled = true;
+    addMessage("user").textContent = approved ? `${event.confirm_label ?? "Confirm"} ✓` : "Cancel";
+    const finish = (text, kind) => {
+      card.classList.add("done", kind);
+      attest.hidden = actions.hidden = true;
+      status.textContent = text;
+      status.hidden = false;
+    };
+    try {
+      await streamReply(
+        "/api/confirm",
+        { session_id: sessionId, confirmation_id: event.id, approved, attested: box.checked },
+        {
+          onConfirmed: (e) => {
+            if (e.outcome === "done") finish(`Submitted${e.result?.claim_id ? ` · ${e.result.claim_id}` : ""}`, "ok");
+            else if (e.outcome === "cancelled") finish("Cancelled", "cancelled");
+            else finish("Not submitted", "failed");
+          },
+        },
+      );
+    } finally {
+      // Card still open (e.g. expired request): let the customer try again or move on.
+      if (!card.classList.contains("done")) {
+        box.disabled = cancel.disabled = false;
+        ok.disabled = !box.checked;
+      }
+      setBusy(false);
+    }
+  };
+  ok.onclick = () => answer(true);
+  cancel.onclick = () => answer(false);
+  return card;
 }
 
 loadConfig();

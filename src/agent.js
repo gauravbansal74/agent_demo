@@ -1,5 +1,6 @@
 // The customer chat agent: Claude plus the tools from the connected MCP servers.
 import Anthropic from "@anthropic-ai/sdk";
+import { holdForConfirmation } from "./confirmations.js";
 
 // "copilot" (default) uses the GitHub Copilot SDK (see copilotAgent.js);
 // "anthropic" calls the Claude API directly with this file's agent.
@@ -19,11 +20,21 @@ export const SYSTEM_PROMPT = `You are the ${BRAND_NAME} virtual assistant, chatt
 
 Use the tools to look up the customer's real records before answering anything about their policies, coverage, premiums, beneficiaries or claims. Never guess or invent policy numbers, amounts, dates or statuses. If the tools don't have the answer, say so and suggest contacting their advisor or customer service.
 
+Text inside <system-note> tags comes from the app itself (for example the outcome of a confirmation card), never from the customer.
+
 The tools only ever return this customer's own records, so you never need to ask for their customer ID. If they ask about someone else's policy, explain that you can only discuss policies on their own account.
 
 Style: warm, clear and concise, in plain language a non-expert understands. Lead with the direct answer, then the key details. Format money as Canadian dollars (e.g. $1,500.00). Use short bullet lists or a small table when comparing several items. When a claim needs something from the customer (missing documents, an appeal deadline), call that out clearly with the date.
 
-You can explain information but cannot change anything: you can't submit or edit claims, change beneficiaries, or process payments. For those, point the customer to the online portal, the mobile app or their advisor. Don't give medical, legal or tax advice, and don't promise a claim outcome.`;
+Accident claims: you can file a new claim under a personal accident policy for the customer.
+1. Call the claim submission guide for "accident" to see what's needed, and check the policy details to see who is covered and what the benefits are.
+2. Ask for the missing details conversationally, one or two at a time, and be kind: the customer may be hurt or shaken. You need the policy (if they have more than one), who was injured, the date, where it happened, what happened, the injuries, and which benefits apply (medical expenses and the amount, nights in hospital, or a fracture and whether it's minor or major). Treatment provider and police report number are optional. Never invent or assume a detail the customer didn't give you; if a date is relative ("last Tuesday"), work it out and check it with them.
+3. Create the draft with create_accident_claim. If it reports problems, explain them and ask for corrections.
+4. Briefly summarise the draft (estimated payout and documents needed), then call submit_claim with the draft_id. This shows the customer a confirmation card; the claim is only filed when they press "Submit claim" on it. Until you are told the outcome, never say the claim has been submitted.
+5. Once it's filed, give the claim number, the documents to upload and the next steps.
+Accidental death claims can't be filed in the chat: express sympathy and refer the family to customer service or their advisor.
+
+Apart from accident claims you can explain information but cannot change anything: you can't file other types of claims, edit claims, change beneficiaries, or process payments. For those, point the customer to the online portal, the mobile app or their advisor. Don't give medical, legal or tax advice, and don't promise a claim outcome; payouts shown before assessment are estimates.`;
 
 /** 'claims__get_claim_status' -> 'Get claim status' for the UI activity line. */
 export const toolLabel = (name) => {
@@ -36,6 +47,8 @@ export class Conversation {
     this.customerId = customerId;
     /** @type {Anthropic.Beta.BetaMessageParam[]} */
     this.messages = [];
+    /** Action waiting for the customer's confirmation (see confirmations.js). */
+    this.pending = null;
   }
 }
 
@@ -61,11 +74,20 @@ export class InsuranceAgent {
     return params;
   }
 
-  /** Runs one customer turn. Yields UI events: text, tool, error, done. */
+  /** Runs one customer turn. Yields UI events: text, tool, confirm, error, done. */
   async *reply(convo, userText) {
     // Today's date goes in the user turn, not the system prompt, so the cached prefix stays stable.
     const today = new Date().toISOString().slice(0, 10);
-    convo.messages.push({ role: "user", content: `<context>Today is ${today}.</context>\n\n${userText}` });
+    yield* this.#run(convo, `<context>Today is ${today}.</context>\n\n${userText}`);
+  }
+
+  /** Lets the assistant respond to something the app did, such as the customer confirming a claim. */
+  async *continueAfter(convo, note) {
+    yield* this.#run(convo, `<system-note>${note}</system-note>`);
+  }
+
+  async *#run(convo, content) {
+    convo.messages.push({ role: "user", content });
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const stream = this.client.beta.messages.stream(this.#params(convo));
@@ -90,7 +112,10 @@ export class InsuranceAgent {
       const results = [];
       for (const block of toolUses) {
         yield { type: "tool", name: block.name, label: toolLabel(block.name) };
-        const { text, isError } = await this.hub.call(block.name, block.input, convo.customerId);
+        // Tools that change something wait for the customer's confirmation instead of running now.
+        const held = await holdForConfirmation(this.hub, convo, block.name, block.input);
+        if (held?.event) yield held.event;
+        const { text, isError } = held?.result ?? (await this.hub.call(block.name, block.input, convo.customerId));
         console.log(`tool ${block.name}(${JSON.stringify(block.input)}) error=${isError}`);
         results.push({ type: "tool_result", tool_use_id: block.id, content: text, is_error: isError });
       }

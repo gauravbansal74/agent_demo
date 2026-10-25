@@ -10,6 +10,7 @@ import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { CopilotClient, ToolSet, defineTool } from "@github/copilot-sdk";
 import { SYSTEM_PROMPT, toolLabel } from "./agent.js";
+import { holdForConfirmation } from "./confirmations.js";
 
 export const COPILOT_MODEL = process.env.COPILOT_MODEL ?? "gpt-5";
 const EFFORT = process.env.CLAUDE_EFFORT ?? "medium";
@@ -70,7 +71,10 @@ export class CopilotAgent {
         skipPermission: true,
         defer: "never",
         handler: async (args) => {
-          const { text, isError } = await this.hub.call(t.name, args, convo.customerId);
+          // Tools that change something wait for the customer's confirmation instead of running now.
+          const held = await holdForConfirmation(this.hub, convo, t.name, args);
+          if (held?.event) convo.emit?.(held.event);
+          const { text, isError } = held?.result ?? (await this.hub.call(t.name, args, convo.customerId));
           return { textResultForLlm: text, resultType: isError ? "failure" : "success" };
         },
       }),
@@ -89,8 +93,18 @@ export class CopilotAgent {
     return convo.copilotSession;
   }
 
-  /** Runs one customer turn. Yields the same UI events as InsuranceAgent: text, tool, error, done. */
+  /** Runs one customer turn. Yields the same UI events as InsuranceAgent: text, tool, confirm, error, done. */
   async *reply(convo, userText) {
+    const today = new Date().toISOString().slice(0, 10);
+    yield* this.#run(convo, { prompt: `<context>Today is ${today}.</context>\n\n${userText}` });
+  }
+
+  /** Lets the assistant respond to something the app did, such as the customer confirming a claim. */
+  async *continueAfter(convo, note) {
+    yield* this.#run(convo, { prompt: `<system-note>${note}</system-note>`, source: "system" });
+  }
+
+  async *#run(convo, message) {
     const session = await this.#session(convo);
     const queue = eventQueue();
     const unsubscribe = [
@@ -105,11 +119,13 @@ export class CopilotAgent {
       }),
       session.on("session.idle", () => queue.push({ type: "done" })),
     ];
+    // Tool handlers run inside the session, so they hand UI events (confirmation cards) to this turn.
+    convo.emit = (event) => queue.push(event);
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      await session.send({ prompt: `<context>Today is ${today}.</context>\n\n${userText}` });
+      await session.send(message);
       yield* queue.drain();
     } finally {
+      convo.emit = null;
       for (const off of unsubscribe) off();
     }
   }

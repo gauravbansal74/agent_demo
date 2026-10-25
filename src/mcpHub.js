@@ -12,6 +12,9 @@
 // customerIdArgument (default "customer_id"), that argument is removed from
 // the schema Claude sees and filled in from the signed-in customer on every
 // call. Claude cannot ask for another customer's data.
+//
+// Tools that change something can be listed under "confirm" so they only run after the
+// customer presses a confirmation button (see confirmations.js).
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,6 +68,7 @@ export class MCPHub {
     this.config = config;
     this.customerArg = config.customerIdArgument ?? "customer_id";
     this.tools = new Map(); // claude tool name -> { server, client, mcpName, claudeTool, scoped }
+    this.confirmations = config.confirm ?? {}; // tool name -> { title, preview }
     this.clients = [];
   }
 
@@ -77,6 +81,11 @@ export class MCPHub {
         const { tools } = await client.listTools();
         for (const tool of tools) this.#register(name, client, tool);
         console.log(`MCP server "${name}" connected with ${tools.length} tools`);
+      }
+      for (const [name, rule] of Object.entries(this.confirmations)) {
+        for (const tool of [name, rule.preview].filter(Boolean)) {
+          if (!this.tools.has(tool)) console.warn(`"confirm" in the MCP config names unknown tool ${tool}`);
+        }
       }
     } catch (err) {
       await this.close();

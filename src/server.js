@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { BRAND_NAME, BRAND_TAGLINE, Conversation, InsuranceAgent, PROVIDER } from "./agent.js";
+import { resolveConfirmation } from "./confirmations.js";
 import { MCPHub, loadConfig } from "./mcpHub.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,6 +22,35 @@ function brandAsset(name) {
 }
 
 const hasToolUse = (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use");
+// Customers can't pose as the app: tags the app uses for its own notes are defused in their messages.
+const defuseTags = (text) => text.replace(/<(\/?)\s*(system-note|context)\b/gi, "‹$1$2");
+
+/** Streams one assistant turn to the browser as Server-Sent Events. */
+async function streamTurn(res, convo, events, first) {
+  convo.busy = true;
+  res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
+  if (first) send(first);
+  try {
+    for await (const event of events) send(event);
+  } catch (err) {
+    console.error("chat turn failed", err);
+    // Drop the half-finished turn so the conversation stays valid for the next message.
+    while (convo.messages.length) {
+      const last = convo.messages.at(-1);
+      if (last.role === "assistant" && !hasToolUse(last)) break;
+      convo.messages.pop();
+    }
+    send({ type: "error", text: "Something went wrong on our side. Please try again." });
+    send({ type: "done" });
+  } finally {
+    convo.busy = false;
+  }
+  res.end();
+}
+
+// One turn at a time per conversation, so replies can't interleave.
+const BUSY = { error: "Please wait for the current reply to finish." };
 
 export function createApp(agent) {
   // In-memory sessions: fine for a demo, use Redis or a database for multiple instances.
@@ -72,22 +102,32 @@ export function createApp(agent) {
     const message = String(req.body?.message ?? "").trim();
     if (!message || message.length > 4000) return res.status(422).json({ error: "message must be 1-4000 characters" });
 
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-    const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
-    try {
-      for await (const event of agent.reply(convo, message)) send(event);
-    } catch (err) {
-      console.error("chat turn failed", err);
-      // Drop the half-finished turn so the conversation stays valid for the next message.
-      while (convo.messages.length) {
-        const last = convo.messages.at(-1);
-        if (last.role === "assistant" && !hasToolUse(last)) break;
-        convo.messages.pop();
-      }
-      send({ type: "error", text: "Something went wrong on our side. Please try again." });
-      send({ type: "done" });
+    if (convo.busy) return res.status(429).json(BUSY);
+    await streamTurn(res, convo, agent.reply(convo, defuseTags(message)));
+  });
+
+  // The customer answered a confirmation card (e.g. "Submit this claim?"). Only now is the tool run.
+  app.post("/api/confirm", async (req, res) => {
+    const convo = sessions.get(req.body?.session_id);
+    if (!convo) return res.status(401).json({ error: "Session expired. Please sign in again." });
+    if (convo.busy) return res.status(429).json(BUSY);
+    const approved = req.body?.approved === true;
+    if (approved && req.body?.attested !== true) {
+      return res.status(422).json({ error: "Please confirm the information is true and complete." });
     }
-    res.end();
+    convo.busy = true; // also covers running the tool
+    let outcome;
+    try {
+      outcome = await resolveConfirmation(agent.hub, convo, String(req.body?.confirmation_id ?? ""), approved);
+    } finally {
+      convo.busy = false;
+    }
+    if (!outcome) return res.status(409).json({ error: "This request has expired. Please ask the assistant again." });
+    await streamTurn(res, convo, agent.continueAfter(convo, outcome.note), {
+      type: "confirmed",
+      outcome: outcome.outcome,
+      result: outcome.result,
+    });
   });
 
   app.use("/static", express.static(path.join(ROOT, "public")));

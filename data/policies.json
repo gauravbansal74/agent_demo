@@ -1,7 +1,7 @@
 [
   {
     "policy_number": "LIF-2014-558201",
-    "customer_id": "C1001",
+    "clientId": "C1001",
     "product": "Term Life 20",
     "type": "life",
     "status": "active",
@@ -16,7 +16,7 @@
   },
   {
     "policy_number": "HLT-2018-110934",
-    "customer_id": "C1001",
+    "clientId": "C1001",
     "product": "Personal Health Plan - Enhanced",
     "type": "health",
     "status": "active",
@@ -35,7 +35,7 @@
   },
   {
     "policy_number": "LIF-2019-771045",
-    "customer_id": "C1002",
+    "clientId": "C1002",
     "product": "Whole Life Participating",
     "type": "life",
     "status": "active",
@@ -50,7 +50,7 @@
   },
   {
     "policy_number": "DIS-2021-300877",
-    "customer_id": "C1002",
+    "clientId": "C1002",
     "product": "Disability Income Protection",
     "type": "disability",
     "status": "lapsed",
@@ -65,7 +65,7 @@
   },
   {
     "policy_number": "CI-2022-904412",
-    "customer_id": "C1003",
+    "clientId": "C1003",
     "product": "Critical Illness Insurance",
     "type": "critical_illness",
     "status": "active",
@@ -76,5 +76,99 @@
     "premium": {"amount": 41.15, "frequency": "monthly", "next_due": "2026-11-10", "payment_method": "Pre-authorized debit ••••3356"},
     "covered_conditions": 26,
     "beneficiaries": [{"name": "Tunde Bello", "relationship": "sibling", "share_pct": 100}]
+  },
+  {
+    "policy_number": "ACC-2020-445210",
+    "clientId": "C1001",
+    "product": "Personal Accident Protection",
+    "type": "accident",
+    "status": "active",
+    "effective_date": "2020-04-15",
+    "expiry_date": null,
+    "coverage_amount": 250000,
+    "currency": "CAD",
+    "premium": {
+      "amount": 24.5,
+      "frequency": "monthly",
+      "next_due": "2026-11-01",
+      "payment_method": "Credit card ••••0093"
+    },
+    "covered_members": [
+      "Priya Sharma",
+      "Arjun Sharma",
+      "Meera Sharma (dependent)"
+    ],
+    "claim_window_days": 90,
+    "benefits": {
+      "medical_expenses": {
+        "description": "Accidental medical expenses: ambulance, emergency care, physiotherapy, medical devices",
+        "coverage_pct": 100,
+        "max_per_accident": 10000
+      },
+      "hospital_cash": {
+        "description": "Daily cash benefit while hospitalized after an accident",
+        "per_day": 200,
+        "max_days": 30
+      },
+      "fracture": {
+        "description": "Fixed benefit for a broken bone confirmed by X-ray",
+        "amounts": {
+          "minor": 1000,
+          "major": 3000
+        },
+        "minor_examples": "finger, toe, rib, wrist, nose",
+        "major_examples": "leg, arm, hip, pelvis, skull, spine"
+      },
+      "accidental_death": {
+        "description": "Lump sum to the beneficiary if death results from an accident within 365 days",
+        "amount": 250000
+      }
+    }
+  },
+  {
+    "policy_number": "ACC-2023-118734",
+    "customer_id": "C1003",
+    "product": "Personal Accident Protection",
+    "type": "accident",
+    "status": "active",
+    "effective_date": "2023-02-01",
+    "expiry_date": null,
+    "coverage_amount": 250000,
+    "currency": "CAD",
+    "premium": {
+      "amount": 16.9,
+      "frequency": "monthly",
+      "next_due": "2026-11-01",
+      "payment_method": "Pre-authorized debit ••••3356"
+    },
+    "covered_members": [
+      "Aisha Bello"
+    ],
+    "claim_window_days": 90,
+    "benefits": {
+      "medical_expenses": {
+        "description": "Accidental medical expenses: ambulance, emergency care, physiotherapy, medical devices",
+        "coverage_pct": 100,
+        "max_per_accident": 10000
+      },
+      "hospital_cash": {
+        "description": "Daily cash benefit while hospitalized after an accident",
+        "per_day": 200,
+        "max_days": 30
+      },
+      "fracture": {
+        "description": "Fixed benefit for a broken bone confirmed by X-ray",
+        "amounts": {
+          "minor": 1000,
+          "major": 3000
+        },
+        "minor_examples": "finger, toe, rib, wrist, nose",
+        "major_examples": "leg, arm, hip, pelvis, skull, spine"
+      },
+      "accidental_death": {
+        "description": "Lump sum to the beneficiary if death results from an accident within 365 days",
+        "amount": 250000
+      }
+    }
   }
 ]
