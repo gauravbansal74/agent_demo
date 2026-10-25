@@ -37,9 +37,14 @@ const FILE_SIGNATURES = [
 ];
 const sniffType = (buf) => FILE_SIGNATURES.find((s) => s.test(buf))?.type ?? null;
 const kb = (bytes) => `${Math.max(1, Math.round(bytes / 1024))} KB`;
-// Tells the assistant which files came with a message; the contents stay on the server.
-const attachmentsNote = (files) =>
-  `<attachments>\n${files.map((f) => `- upload_id: ${f.id} | ${f.name} | ${f.type} | ${kb(f.size)}`).join("\n")}\n</attachments>\n\n`;
+// Tells the assistant which files came with a message, and how to use them; the contents stay on the server.
+function attachmentsNote(files, fileTools) {
+  const how = fileTools.length
+    ? `To add a file to a claim, call ${fileTools.join(" or ")} with its upload_id; the app sends the file. You don't need to read it.`
+    : "None of the connected tools can receive files, so tell the customer to upload these documents in the online portal or mobile app.";
+  const list = files.map((f) => `- upload_id: ${f.id} | ${f.name} | ${f.type} | ${kb(f.size)}`).join("\n");
+  return `<attachments>\n${list}\n${how}\n</attachments>\n\n`;
+}
 
 /** Streams one assistant turn to the browser as Server-Sent Events. */
 async function streamTurn(res, convo, events, first) {
@@ -76,13 +81,10 @@ export function createApp(agent) {
 
   app.get("/api/config", (req, res) => {
     const file = demoCustomersFile();
-    const customers = existsSync(file)
-      ? JSON.parse(readFileSync(file, "utf8")).map((c) => ({
-          // The id field may follow your servers' naming (customerIdArgument, e.g. "clientId").
-          customer_id: c[agent.hub.customerArg] ?? c.customer_id,
-          name: `${c.first_name} ${c.last_name}`,
-        }))
-      : [];
+    // The id field may follow your servers' naming (customerIdArgument, e.g. "clientId").
+    const customers = (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : [])
+      .map((c) => ({ customer_id: c[agent.hub.customerArg] ?? c.customer_id ?? c.clientId, name: `${c.first_name} ${c.last_name}` }))
+      .filter((c) => c.customer_id);
     res.json({
       brand_name: BRAND_NAME,
       brand_tagline: BRAND_TAGLINE,
@@ -126,7 +128,7 @@ export function createApp(agent) {
     }
 
     if (convo.busy) return res.status(429).json(BUSY);
-    const text = (files.length ? attachmentsNote(files) : "") + (defuseTags(message) || "(The customer sent the attached files without a message.)");
+    const text = (files.length ? attachmentsNote(files, agent.hub.fileTools()) : "") + (defuseTags(message) || "(The customer sent the attached files without a message.)");
     await streamTurn(res, convo, agent.reply(convo, text));
   });
 

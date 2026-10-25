@@ -9,7 +9,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Mock claims server tool `attach_claim_document`: attaches a file to a draft (before submission) or a filed claim, matched to a required document. Drafts and claims now list documents received and documents still outstanding; `submit_claim` files the attached documents with the claim.
 - File tools in the MCP hub: a tool with a `content_base64` argument gets an `upload_id` argument instead, and the backend fills in the file contents, name and type from the customer's upload. File contents never pass through the LLM, and only files from the same chat can be sent. Argument names can be changed with `uploadArguments` in the MCP config.
 - The confirmation card shows which documents are attached and which are still needed.
-- The assistant offers to take documents during an accident claim and attaches them.
+- The assistant offers to take documents during an accident claim and attaches them. The attachments note tells it which tool takes files (or that none does), and its instructions say it never needs to open a file, so it no longer turns files away or holds up a claim because it "can't read" them.
 - `mcp-servers.mock.json` and `test/fixtures/`: the tests use their own mock config and sample data, so editing `mcp-servers.json` or `data/` for a demo no longer breaks them.
 - `DEMO_CUSTOMERS` setting for the sign-in list file.
 - Tests for uploads and document attachments.
@@ -30,7 +30,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Amazon Bedrock support (`LLM_PROVIDER=bedrock`), its `@anthropic-ai/bedrock-sdk` dependency, test and docs. Copilot covers the "no direct Claude access" case.
 
 ### Changed
-- The demo sign-in list reads the customer id from the field named by `customerIdArgument` (e.g. `clientId`), falling back to `customer_id`. The mock servers accept sample data that uses `clientId` too.
+- The demo sign-in list reads the customer id from the field named by `customerIdArgument` (e.g. `clientId`), falling back to `customer_id` and then `clientId`, so it works with either config. Customers without an id are left out instead of showing "undefined". The mock servers accept sample data that uses `clientId` too.
 - Customer messages can no longer contain the `<system-note>`, `<context>` and `<attachments>` tags the app uses for its own notes to the assistant.
 - One reply at a time per conversation: a second message while a reply is streaming gets a "please wait" response.
 - Branding updated to the new one-word **Sunlife** brand (announced October 2026): `BRAND_NAME` now defaults to `Sunlife`.

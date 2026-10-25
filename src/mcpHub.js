@@ -120,7 +120,8 @@ export class MCPHub {
       for (const arg of fileArgs) delete schema.properties[arg];
       schema.properties.upload_id = {
         type: "string",
-        description: "Id of a file the customer uploaded in this chat (listed in the <attachments> note of their message)",
+        description:
+          "upload_id of a file the customer uploaded in this chat, from the <attachments> note of their message. The app sends the file's contents for you; you don't need to see or read the file.",
       };
       schema.required = [...(schema.required ?? []).filter((r) => !fileArgs.includes(r)), "upload_id"];
     }
@@ -134,6 +135,11 @@ export class MCPHub {
       takesUpload,
       claudeTool: { name: claudeName, description: tool.description ?? tool.title ?? tool.name, input_schema: schema },
     });
+  }
+
+  /** Names of tools that take an uploaded file. */
+  fileTools() {
+    return [...this.tools.values()].filter((t) => t.takesUpload).map((t) => t.claudeTool.name).sort();
   }
 
   claudeTools() {

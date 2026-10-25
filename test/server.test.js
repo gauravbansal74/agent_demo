@@ -66,3 +66,16 @@ test("demo sign-in list reads the configured customer id field", async () => {
     [process.env.DEMO_CUSTOMERS, hub.customerArg] = saved;
   }
 });
+
+test("demo sign-in list finds clientId even with the mock config", async () => {
+  const file = path.join(tmpdir(), `customers-mock-${process.pid}.json`);
+  writeFileSync(file, JSON.stringify([{ clientId: "0028319228", first_name: "Priya", last_name: "Sharma" }, { first_name: "No", last_name: "Id" }]));
+  const saved = process.env.DEMO_CUSTOMERS;
+  process.env.DEMO_CUSTOMERS = file;
+  try {
+    const cfg = await (await fetch(`${base}/api/config`)).json();
+    assert.deepEqual(cfg.demo_customers, [{ customer_id: "0028319228", name: "Priya Sharma" }]);
+  } finally {
+    process.env.DEMO_CUSTOMERS = saved;
+  }
+});

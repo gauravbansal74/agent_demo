@@ -82,6 +82,8 @@ test("documents attached to a draft are filed with the claim", async () => {
   // The model was told which file came with the message, but not its contents.
   const sent = agent.client.requests[0].messages.at(-1).content;
   assert.match(sent, new RegExp(`<attachments>\\n- upload_id: ${xray.upload_id} \\| x-ray\\.jpg \\| image/jpeg`));
+  // ...and how to pass it on, so it doesn't send the customer elsewhere.
+  assert.match(sent, /call claims__attach_claim_document with its upload_id; the app sends the file/);
   const toolResult = JSON.parse(agent.client.requests[1].messages.at(-1).content[0].content);
   assert.equal(toolResult.attached.document_type, "X-ray report confirming the fracture");
 
