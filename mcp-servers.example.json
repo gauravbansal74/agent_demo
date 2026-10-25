@@ -1,5 +1,5 @@
 {
-  "customerIdArgument": "customer_id",
+  "customerIdArgument": "clientId",
   "servers": {
     "policies": {
       "transport": "streamable_http",
